@@ -1,4 +1,0 @@
-{
-    "ros.distro": "galactic",
-    "ros.rosSetupScript": "/opt/ros/galactic/install/setup.bash",
-}

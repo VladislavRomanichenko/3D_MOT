@@ -1,9 +1,0 @@
-/home/vlad/Desktop/tracker/build/CMakeFiles/install/strip.dir
-/home/vlad/Desktop/tracker/build/CMakeFiles/install/local.dir
-/home/vlad/Desktop/tracker/build/CMakeFiles/install.dir
-/home/vlad/Desktop/tracker/build/CMakeFiles/list_install_components.dir
-/home/vlad/Desktop/tracker/build/CMakeFiles/rebuild_cache.dir
-/home/vlad/Desktop/tracker/build/CMakeFiles/edit_cache.dir
-/home/vlad/Desktop/tracker/build/CMakeFiles/test.dir
-/home/vlad/Desktop/tracker/build/CMakeFiles/tracker_uninstall.dir
-/home/vlad/Desktop/tracker/build/CMakeFiles/uninstall.dir
