@@ -12,6 +12,7 @@ import rclpy.time
 import tf2_ros
 
 from rclpy.duration import Duration
+from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 
@@ -141,11 +142,11 @@ from sensor_msgs.msg import CameraInfo
 #         return box3d
 
 
-if version.parse(scipy.__version__) < version.parse('1.4'):
-    class RotationMod(Rotation):
-        def as_matrix(self):
-            return self.as_dcm()
-    Rotation = RotationMod
+# if version.parse(scipy.__version__) < version.parse('1.4'):
+#     class RotationMod(Rotation):
+#         def as_matrix(self):
+#             return self.as_dcm()
+#     Rotation = RotationMod
 
 
 class Tracker(Node):
@@ -170,34 +171,17 @@ class Tracker(Node):
         self.publisher = self.create_publisher(DynamicObjectArray, self.publisher_topic, qos)
 
         #Create parameter for transformation
-        self.fixed_frame = self.declare_parameter('fixed_frame', 'local_map').value
+        self.fixed_frame = self.declare_parameter('fixed_frame', 'hdl32').value
 
         self.queue_size = self.declare_parameter('queue_size', 5).value
 
 
         self.buffer = Buffer()
         self.listener = TransformListener(self.buffer, self)
-        self.prev_transform = None
+        #self.prev_transform = None
 
         self.get_logger().info('Initializing is OK')
 
-    def get_transform(self, frame_id, stamp):
-        try:
-            transform = self.buffer.lookup_transform(
-                self.fixed_frame, frame_id, stamp
-                )
-            self.prev_transform = transform
-            return transform
-
-        except(
-            tf2_ros.LookupException,
-            tf2_ros.ConnectivityException,
-            tf2_ros.ExtrapolationException
-        ) as error:
-            self.node.get_logger().warn("TF wait-time limit reached, using previous tf")
-            self.node.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG)
-            self.node.get_logger().warn(f"TF Error: {str(error)}, using previous tf")
-            return self.prev_transform #Используем предыдущую трансформацию
 
 
     def Rt_from_tq(self, t, q):
@@ -222,6 +206,53 @@ class Tracker(Node):
         q.x, q.y, q.z, q.w = Rotation.from_matrix(Rt[:3, :3]).as_quat()
         t.x, t.y, t.z = Rt[:3, 3]
         return pose
+
+
+    # def quaternion_from_matrix(self, matrix):
+    #     m = matrix
+    #     t = numpy.trace(m)
+
+    #     if t > 0:
+    #         s = numpy.sqrt(t + 1.0) * 2  # s=4*qw
+    #         qw = 0.25 * s
+    #         qx = (m[2][1] - m[1][2]) / s
+    #         qy = (m[0][2] - m[2][0]) / s
+    #         qz = (m[1][0] - m[0][1]) / s
+    #     else:
+    #         if (m[0][0] > m[1][1]) and (m[0][0] > m[2][2]):
+    #             s = numpy.sqrt(1.0 + m[0][0] - m[1][1] - m[2][2]) * 2  # s=4*qx
+    #             qw = (m[2][1] - m[1][2]) / s
+    #             qx = 0.25 * s
+    #             qy = (m[0][1] + m[1][0]) / s
+    #             qz = (m[0][2] + m[2][0]) / s
+    #         elif m[1][1] > m[2][2]:
+    #             s = numpy.sqrt(1.0 + m[1][1] - m[0][0] - m[2][2]) * 2  # s=4*qy
+    #             qw = (m[0][2] - m[2][0]) / s
+    #             qx = (m[0][1] + m[1][0]) / s
+    #             qy = 0.25 * s
+    #             qz = (m[1][2] + m[2][1]) / s
+    #         else:
+    #             s = numpy.sqrt(1.0 + m[2][2] - m[0][0] - m[1][1]) * 2  # s=4*qz
+    #             qw = (m[1][0] - m[0][1]) / s
+    #             qx = (m[0][2] + m[2][0]) / s
+    #             qy = (m[1][2] + m[2][1]) / s
+    #             qz = 0.25 * s
+
+    #     norm = numpy.sqrt(qx**2 + qy**2 + qz**2 + qw**2)
+    #     return numpy.array([qx, qy, qz, qw]) / norm
+
+
+
+    # def Pose_from_Rt(self, Rt):
+    #     pose = Pose()
+    #     q = pose.orientation
+    #     t = pose.position
+
+    #     quat = self.quaternion_from_matrix(Rt[:3, :3])
+    #     q.x, q.y, q.z, q.w = quat[0], quat[1], quat[2], quat[3]
+
+    #     t.x, t.y, t.z = Rt[:3, 3]
+    #     return pose
 
 
     def transform_object(self, obj, tf):
@@ -282,7 +313,13 @@ class Tracker(Node):
 
 
     def tracker_callback(self, objects):
-        tf = self.get_transform(objects.header.frame_id, objects.header.stamp)
+
+        try:
+            tf = self.buffer.lookup_transform(
+                self.fixed_frame, objects.header.frame_id, objects.header.stamp)
+        except TransformException as ex:
+            self.get_logger().warn(f'tf lookup error: {ex}')
+            return
 
         dynamic_objects = DynamicObjectArray()
         dynamic_object = DynamicObject()
@@ -290,9 +327,9 @@ class Tracker(Node):
         dynamic_objects.header = objects.header
 
         for obj in objects.objects:
-            self.transform_object(obj, tf)
+            self.transform_object(obj, tf.transform)
             dynamic_object.object = obj
-            dynamic_objects.append(dynamic_object)
+            dynamic_objects.objects.append(dynamic_object)
 
         self.publisher.publish(dynamic_objects)
 
@@ -304,7 +341,7 @@ def main(args=None):
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
-        node.get_logger().info('Остановка узла')
+        node.get_logger().info('Node shutdown')
 
     node.destroy_node()
     rclpy.shutdown()
