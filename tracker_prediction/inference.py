@@ -29,22 +29,12 @@ class Tracker(Node):
         #QOS options
         qos = QoSProfile(depth=10, reliability=QoSReliabilityPolicy.BEST_EFFORT)
 
-        #Declare parameter
-        self.declare_parameter('subscriber_topic', '/centerpoint/objects3d')
-        self.subscriber_topic = self.get_parameter('subscriber_topic').value
-
-        self.declare_parameter('publisher_topic', '/centerpoint/dynamic_objects3d')
-        self.publisher_topic = self.get_parameter('publisher_topic').value
-
         #Create subscriber and publisher
-        self.subscriber = self.create_subscription(ObjectArray, self.subscriber_topic, self.tracker_callback, qos)
-        self.publisher = self.create_publisher(DynamicObjectArray, self.publisher_topic, qos)
+        self.subscriber = self.create_subscription(ObjectArray, "objects3d", self.tracker_callback, qos)
+        self.publisher = self.create_publisher(DynamicObjectArray, "dynamic_objects3d", qos)
 
         #Create parameter for transformation
-        self.fixed_frame = self.declare_parameter('fixed_frame', 'hdl32').value
-
-        self.queue_size = self.declare_parameter('queue_size', 5).value
-
+        self.target_frame = self.declare_parameter('target_frame', 'hdl32').value
 
         self.buffer = Buffer()
         self.listener = TransformListener(self.buffer, self)
@@ -86,7 +76,7 @@ class Tracker(Node):
 
         try:
             tf = self.buffer.lookup_transform(
-                self.fixed_frame, objects.header.frame_id, objects.header.stamp)
+                self.target_frame, objects.header.frame_id, objects.header.stamp)
         except TransformException as ex:
             self.get_logger().warn(f'tf lookup error: {ex}')
             return
