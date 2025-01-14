@@ -25,13 +25,13 @@ from objects_msgs.msg import ObjectArray, DynamicObjectArray
 class ObjectTfConverter:
 
     def __init__(self, node):
-        #_EPS = numpy.finfo(float).eps * 4.0
+        self._EPS = numpy.finfo(float).eps * 4.0
 
         self.node = node
-        self.fixed_frame = 'local_map'
+        self.fixed_frame = 'base_link'
 
         self.buffer = Buffer()
-
+        self.buffer.clear()
         self.listener = TransformListener(self.buffer, self.node)
         self.prev_transform = None
 
@@ -39,8 +39,9 @@ class ObjectTfConverter:
     def get_transform(self, frame_id, stamp):
         try:
             transform = self.buffer.lookup_transform(
-                target_frame=self.fixed_frame, source_frame=frame_id, time=stamp, Duration=Duration(seconds=0.001)
+                self.fixed_frame, frame_id, stamp
                 )
+
             self.prev_transform = transform
             return transform
 
@@ -75,6 +76,12 @@ class ObjectTfConverter:
 
 
     def euler_from_matrix_vec(self, matrix):
+        if matrix.ndim == 2:
+            matrix = matrix[numpy.newaxis, :, :]  
+
+        elif matrix.ndim != 3:
+            raise ValueError("Матрица должна быть трехмерной (N, 3, 3)")
+        
         pitch = numpy.arctan2(matrix[:, 2, 1], numpy.sqrt(numpy.power(matrix[:, 0, 0], 2) + numpy.power(matrix[:, 1, 0], 2)))
 
         deg_pos_90 = numpy.full(pitch.shape, 1.5707, dtype=numpy.float16)
@@ -150,6 +157,7 @@ class ObjectTfConverter:
 
         other_P = (M[:3, :3] @ other_P.T).T + P
         other_M = M[:3, :3] @ other_M.astype(numpy.float32)
+        other_M = other_M.reshape(-1, 3, 3)
 
         box3d[:, -1] = self.euler_from_matrix_vec(other_M).astype(numpy.float16)
         box3d[:, :3] = other_P.astype(numpy.float16)
@@ -206,7 +214,25 @@ class Tracker(Node):
 
         if(len(self.box3d) > 0):
             self.box3d[:, -1] = -self.box3d[:, -1] - numpy.pi / 2
-            self.box3d = self.object_tranformer.transform_pose(self.box3d, self.header)
+            self.box3d = self.object_tranformer.transform_pose(self.box3d, objects.header)
+
+        for i, obj in enumerate(objects.objects):
+            print(f"""
+            pose:
+                position:
+                x: {self.box3d[i][0]}
+                y: {self.box3d[i][1]}
+                z: {self.box3d[i][2]}
+                orientation:
+                x: {obj.pose.orientation.x}
+                y: {obj.pose.orientation.y}
+                z: {obj.pose.orientation.z}
+                w: {obj.pose.orientation.w}
+            size:
+                x: {self.box3d[i][4]}  # size.x
+                y: {self.box3d[i][3]}  # size.y
+                z: {self.box3d[i][5]}  # size.z
+            ---""")
 
 
 def main(args=None):
