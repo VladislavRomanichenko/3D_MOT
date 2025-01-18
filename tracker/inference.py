@@ -21,7 +21,6 @@ from objects_msgs.msg import ObjectArray, DynamicObjectArray
 
 #TODO: разобраться с cache_time в buffer, который инициализируется в конструкторе
 #      разобраться с математикой в quaternion_matrix, euler_from_matrix_vec, euler_to_matrix
-#      заполнить бокс из объекта в transform_pose
 
 class ObjectTfConverter:
 
