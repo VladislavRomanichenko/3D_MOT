@@ -25,13 +25,12 @@ from objects_msgs.msg import ObjectArray, DynamicObjectArray
 class ObjectTfConverter:
 
     def __init__(self, node):
-        _EPS = numpy.finfo(float).eps * 4.0
+        #_EPS = numpy.finfo(float).eps * 4.0
 
         self.node = node
         self.fixed_frame = 'local_map'
 
-        self.buffer = Buffer(cache_time=(Duration(0.001)))
-        self.buffer.clear()
+        self.buffer = Buffer()
 
         self.listener = TransformListener(self.buffer, self.node)
         self.prev_transform = None
@@ -161,7 +160,9 @@ class ObjectTfConverter:
 class Tracker(Node):
 
     def __init__(self):
-        self.get_logger("| Initializing Tracker |")
+        super().__init__('tracker_node')
+
+        self.get_logger().info('Initializing Tracker')
 
         #QOS options
         qos = QoSProfile(depth=10, reliability=QoSReliabilityPolicy.BEST_EFFORT)
@@ -175,12 +176,10 @@ class Tracker(Node):
 
         #Create subscriber and publisher
         self.subscriber = self.create_subscription(ObjectArray, self.subscriber_topic, self.tracker_callback, qos)
-        self.publisher = self.create_publisher(DynamicObjectArray, self.publisher_topic)
+        self.publisher = self.create_publisher(DynamicObjectArray, self.publisher_topic, qos)
 
-
-        self.object_tranformer = ObjectTfConverter()
-
-        self.get_logger("| Initializing is OK |")
+        self.object_tranformer = ObjectTfConverter(self)
+        self.get_logger().info('Initializing is OK')
 
 
     def tracker_callback(self, objects):
@@ -211,16 +210,24 @@ class Tracker(Node):
 
 
 def main(args=None):
-    rclpy.init()
+    rclpy.init(args=args)
     node = Tracker()
 
-    executor = rclpy.executors.MultiThreadedExecutor()
-    executor.add_node(node)
+    # executor = rclpy.executors.MultiThreadedExecutor()
+    # executor.add_node(node)
+
+    # try:
+    #     executor.spin()
+    # except KeyboardInterrupt:
+    #     pass
+
+    # while rclpy.ok():
+    #     rclpy.spin_once(node)
 
     try:
-        executor.spin()
+        rclpy.spin(node)
     except KeyboardInterrupt:
-        pass
+        node.get_logger().info('Остановка узла')
 
     node.destroy_node()
     rclpy.shutdown()
