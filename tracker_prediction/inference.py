@@ -168,10 +168,10 @@ class Tracker(Node):
         qos = QoSProfile(depth=10, reliability=QoSReliabilityPolicy.BEST_EFFORT)
 
         #Declare parameter
-        self.declare_parameter('subscriber_topic', '/objects3d')
+        self.declare_parameter('subscriber_topic', '/centerpoint/objects3d')
         self.subscriber_topic = self.get_parameter('subscriber_topic').value
 
-        self.declare_parameter('publisher_topic', '/dynamic_objects3d')
+        self.declare_parameter('publisher_topic', '/centerpoint/dynamic_objects3d')
         self.publisher_topic = self.get_parameter('publisher_topic').value
 
         #Create subscriber and publisher
