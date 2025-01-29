@@ -1,9 +1,6 @@
 import numpy
-import math
 from collections import namedtuple
-from packaging import version
 from scipy.spatial.transform import Rotation
-import scipy
 
 import rclpy
 import rclpy.clock
@@ -11,7 +8,6 @@ import rclpy.logging
 import rclpy.time
 import tf2_ros
 
-from rclpy.duration import Duration
 from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
@@ -20,8 +16,7 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy
 
 from objects_msgs.msg import ObjectArray, DynamicObjectArray, DynamicObject
-from geometry_msgs.msg import Point, Pose, Quaternion, Transform, Vector3
-from sensor_msgs.msg import CameraInfo
+from geometry_msgs.msg import Pose
 
 
 class Tracker(Node):
@@ -58,7 +53,6 @@ class Tracker(Node):
         self.get_logger().info('Initializing is OK')
 
 
-
     def Rt_from_tq(self, t, q):
         Rt = numpy.eye(4)
         Rt[:3, :3] = Rotation.from_quat((q.x, q.y, q.z, q.w)).as_matrix()
@@ -83,107 +77,9 @@ class Tracker(Node):
         return pose
 
 
-    # def quaternion_from_matrix(self, matrix):
-    #     m = matrix
-    #     t = numpy.trace(m)
-
-    #     if t > 0:
-    #         s = numpy.sqrt(t + 1.0) * 2  # s=4*qw
-    #         qw = 0.25 * s
-    #         qx = (m[2][1] - m[1][2]) / s
-    #         qy = (m[0][2] - m[2][0]) / s
-    #         qz = (m[1][0] - m[0][1]) / s
-    #     else:
-    #         if (m[0][0] > m[1][1]) and (m[0][0] > m[2][2]):
-    #             s = numpy.sqrt(1.0 + m[0][0] - m[1][1] - m[2][2]) * 2  # s=4*qx
-    #             qw = (m[2][1] - m[1][2]) / s
-    #             qx = 0.25 * s
-    #             qy = (m[0][1] + m[1][0]) / s
-    #             qz = (m[0][2] + m[2][0]) / s
-    #         elif m[1][1] > m[2][2]:
-    #             s = numpy.sqrt(1.0 + m[1][1] - m[0][0] - m[2][2]) * 2  # s=4*qy
-    #             qw = (m[0][2] - m[2][0]) / s
-    #             qx = (m[0][1] + m[1][0]) / s
-    #             qy = 0.25 * s
-    #             qz = (m[1][2] + m[2][1]) / s
-    #         else:
-    #             s = numpy.sqrt(1.0 + m[2][2] - m[0][0] - m[1][1]) * 2  # s=4*qz
-    #             qw = (m[1][0] - m[0][1]) / s
-    #             qx = (m[0][2] + m[2][0]) / s
-    #             qy = (m[1][2] + m[2][1]) / s
-    #             qz = 0.25 * s
-
-    #     norm = numpy.sqrt(qx**2 + qy**2 + qz**2 + qw**2)
-    #     return numpy.array([qx, qy, qz, qw]) / norm
-
-
-    # def Pose_from_Rt(self, Rt):
-    #     pose = Pose()
-    #     q = pose.orientation
-    #     t = pose.position
-
-    #     quat = self.quaternion_from_matrix(Rt[:3, :3])
-    #     q.x, q.y, q.z, q.w = quat[0], quat[1], quat[2], quat[3]
-
-    #     t.x, t.y, t.z = Rt[:3, 3]
-    #     return pose
-
-
     def transform_object(self, obj, tf):
         obj.pose = self.Pose_from_Rt(
             numpy.dot(self.Rt_from_Transform(tf), self.Rt_from_Pose(obj.pose)))
-
-
-    def set_object_yaw(self, obj, yaw, camera_frame=False):
-        if camera_frame:
-            R = numpy.array([
-                [-numpy.sin(yaw), -numpy.cos(yaw), 0.0],
-                [0.0, 0.0, -1.0],
-                [numpy.cos(yaw), -numpy.sin(yaw), 0.0],
-            ])
-            q = Rotation.from_matrix(R).as_quat()
-            obj.pose.orientation.x = q[0]
-            obj.pose.orientation.y = q[1]
-            obj.pose.orientation.z = q[2]
-            obj.pose.orientation.w = q[3]
-        else:
-            obj.pose.orientation.x = 0
-            obj.pose.orientation.y = 0
-            obj.pose.orientation.z = numpy.sin(yaw / 2)
-            obj.pose.orientation.w = numpy.cos(yaw / 2)
-
-
-    def get_object_yaw(self, obj, camera_frame=False):
-        if camera_frame:
-            q = obj.pose.orientation
-            R = Rotation.from_quat((q.x, q.y, q.z, q.w)).as_matrix()
-            yaw = numpy.arctan2(-R[0, 0], -R[0, 1])
-        else:
-            yaw = numpy.arctan2(obj.pose.orientation.z, obj.pose.orientation.w)
-        return yaw
-
-
-    def object_points(self, obj, Rt=None):
-        dx, dy, dz = obj.size.x / 2, obj.size.y / 2, obj.size.z / 2
-        # additional axis with ones for matrix multiplication
-        pts = numpy.array([
-            [-dx, -dy, -dz, 1],  # 0: back bottom right
-            [+dx, -dy, -dz, 1],  # 1: front bottom right
-            [+dx, +dy, -dz, 1],  # 2: front bottom left
-            [-dx, +dy, -dz, 1],  # 3: back bottom left
-            [-dx, -dy, +dz, 1],  # 4: back top right
-            [+dx, -dy, +dz, 1],  # 5: front top right
-            [+dx, +dy, +dz, 1],  # 6: front top left
-            [-dx, +dy, +dz, 1],  # 7: back top left
-        ])
-        if Rt is None:
-            Rt = numpy.eye(4)
-        res = numpy.dot(numpy.dot(Rt, self.Rt_from_Pose(obj.pose)), pts.T).T[:, :3]
-        return res
-
-
-    EDGES_INDICES = [(0, 1), (1, 2), (2, 3), (3, 0), (0, 4), (1, 5), (2, 6),
-                    (3, 7), (4, 5), (5, 6), (6, 7), (7, 4), (1, 6), (2, 5)]
 
 
     def tracker_callback(self, objects):
