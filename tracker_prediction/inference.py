@@ -23,131 +23,6 @@ from objects_msgs.msg import ObjectArray, DynamicObjectArray, DynamicObject
 from geometry_msgs.msg import Point, Pose, Quaternion, Transform, Vector3
 from sensor_msgs.msg import CameraInfo
 
-# class ObjectTfConverter:
-
-#     def __init__(self, node):
-#         self._EPS = numpy.finfo(float).eps * 4.0
-
-#         self.node = node
-#         self.fixed_frame = 'local_map'
-
-#         self.buffer = Buffer()
-
-#         self.listener = TransformListener(self.buffer, self.node)
-#         self.prev_transform = None
-
-
-#     def quaternion_matrix(self, quaternion):
-#         q = numpy.array(quaternion[:4], dtype=numpy.float64, copy=True)
-#         nq = numpy.dot(q, q)
-
-#         if nq < self._EPS:
-#             return numpy.identity(4)
-
-#         q *= math.sqrt(2.0 / nq)
-#         q = numpy.outer(q, q)
-
-#         return numpy.array((
-#             (1.0-q[1, 1]-q[2, 2],     q[0, 1]-q[2, 3],     q[0, 2]+q[1, 3], 0.0),
-#             (    q[0, 1]+q[2, 3], 1.0-q[0, 0]-q[2, 2],     q[1, 2]-q[0, 3], 0.0),
-#             (    q[0, 2]-q[1, 3],     q[1, 2]+q[0, 3], 1.0-q[0, 0]-q[1, 1], 0.0),
-#             (                0.0,                 0.0,                 0.0, 1.0)
-#             ), dtype=numpy.float64)
-
-
-#     def euler_from_matrix_vec(self, matrix):
-#         if matrix.ndim == 2:
-#             matrix = matrix[numpy.newaxis, :, :]  # Добавляем новую ось, если матрица двумерная
-#         elif matrix.ndim != 3:
-#             raise ValueError("Матрица должна быть трехмерной (N, 3, 3)")
-#         pitch = numpy.arctan2(matrix[:, 2, 1], numpy.sqrt(numpy.power(matrix[:, 0, 0], 2) + numpy.power(matrix[:, 1, 0], 2)))
-
-#         deg_pos_90 = numpy.full(pitch.shape, 1.5707, dtype=numpy.float16)
-#         deg_neg_90 = numpy.full(pitch.shape, 1.5707, dtype=numpy.float16)
-
-#         pos_90_mask = deg_pos_90 == pitch
-#         neg_90_mask = deg_neg_90 == pitch
-
-#         not_90 = numpy.logical_and(~pos_90_mask, ~neg_90_mask)
-
-#         yaw_not_90 = numpy.arctan2(matrix[:, 1, 0], matrix[:, 0, 0])
-#         yaw_pos_90 = numpy.arctan2(matrix[:, 1, 2], matrix[:, 0, 2])
-#         yaw_neg_90 = numpy.arctan2(-matrix[:, 1, 2], -matrix[:, 0, 2])
-
-#         yaw = numpy.zeros(pitch.shape, dtype=numpy.float16)
-
-#         yaw[pos_90_mask] = yaw_pos_90[pos_90_mask]
-#         yaw[not_90] = yaw_not_90[not_90]
-#         yaw[neg_90_mask] = yaw_neg_90[neg_90_mask]
-
-#         return yaw
-
-
-#     def euler_to_matrix(self, angles, coords):
-#         assert len(angles) == len(coords)
-
-#         num_samples = len(angles)
-
-#         coss = numpy.cos(angles)
-#         sins = numpy.sin(angles)
-#         nels = numpy.zeros(num_samples, dtype=numpy.float16)
-#         ones = numpy.ones(num_samples, dtype=numpy.float16)
-
-#         Rz = numpy.stack((
-#             numpy.stack((coss, sins, nels)),
-#             numpy.stack((-sins, coss, nels)),
-#             numpy.stack((nels, nels, ones))
-#         ), axis=0)  # Стек наших массивов по оси 0
-
-#         return Rz
-
-
-#     def transform_pose(self, box3d, header):
-#         transform = self.get_transform(header.frame_id, header.stamp)
-
-#         #Если нужен будет вывод центра робота
-#         #robot_center = numpy.array([[0, 0, 0, 0]], dtype=numpy.float16) # X, Y, Z, yaw
-
-#         if transform is None:
-#             self.node.get_logger().warn("No transform received! ")
-#             return box3d
-
-#         #Матирца ротаций
-#         rotation = numpy.array([
-#             transform.transform.rotation.x,
-#             transform.transform.rotation.y,
-#             transform.transform.rotation.z,
-#             transform.transform.rotation.w,
-#         ], dtype=numpy.float16)
-
-#         #Матрица трансляций
-#         translation = numpy.array([
-#             transform.transform.translation.x,
-#             transform.transform.translation.y,
-#             transform.transform.translation.z,
-#         ], dtype=numpy.float16)
-
-#         M = self.quaternion_matrix(rotation)
-#         P = translation
-
-#         other_P = box3d[:, :3]
-#         other_M = self.euler_to_matrix(box3d[:, -1], box3d[:, :3])
-
-#         other_P = (M[:3, :3] @ other_P.T).T + P
-#         other_M = M[:3, :3] @ other_M.astype(numpy.float32)
-#         other_M = other_M.reshape(-1, 3, 3)
-#         print(other_M.shape)
-#         box3d[:, -1] = self.euler_from_matrix_vec(other_M).astype(numpy.float16)
-#         box3d[:, :3] = other_P.astype(numpy.float16)
-#         return box3d
-
-
-# if version.parse(scipy.__version__) < version.parse('1.4'):
-#     class RotationMod(Rotation):
-#         def as_matrix(self):
-#             return self.as_dcm()
-#     Rotation = RotationMod
-
 
 class Tracker(Node):
 
@@ -240,7 +115,6 @@ class Tracker(Node):
 
     #     norm = numpy.sqrt(qx**2 + qy**2 + qz**2 + qw**2)
     #     return numpy.array([qx, qy, qz, qw]) / norm
-
 
 
     # def Pose_from_Rt(self, Rt):
