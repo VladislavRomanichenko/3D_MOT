@@ -13,7 +13,6 @@ from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, QoSReliabilityPolicy
 
 from objects_msgs.msg import ObjectArray, DynamicObjectArray, DynamicObject
 from geometry_msgs.msg import Pose
@@ -26,12 +25,9 @@ class Tracker(Node):
 
         self.get_logger().info('Initializing Tracker')
 
-        #QOS options
-        qos = QoSProfile(depth=10, reliability=QoSReliabilityPolicy.BEST_EFFORT)
-
         #Create subscriber and publisher
-        self.subscriber = self.create_subscription(ObjectArray, "objects3d", self.tracker_callback, qos)
-        self.publisher = self.create_publisher(DynamicObjectArray, "tracker", qos)
+        self.subscriber = self.create_subscription(ObjectArray, "objects3d", self.tracker_callback, 1)
+        self.publisher = self.create_publisher(DynamicObjectArray, "tracker", 1)
 
         #Create parameter for transformation
         self.target_frame = self.declare_parameter('target_frame', 'hdl32').value
