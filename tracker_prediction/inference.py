@@ -31,14 +31,13 @@ class Tracker(Node):
 
         #Create subscriber and publisher
         self.subscriber = self.create_subscription(ObjectArray, "objects3d", self.tracker_callback, qos)
-        self.publisher = self.create_publisher(DynamicObjectArray, "dynamic_objects3d", qos)
+        self.publisher = self.create_publisher(DynamicObjectArray, "tracker", qos)
 
         #Create parameter for transformation
         self.target_frame = self.declare_parameter('target_frame', 'hdl32').value
 
         self.buffer = Buffer()
         self.listener = TransformListener(self.buffer, self)
-        #self.prev_transform = None
 
         self.get_logger().info('Initializing is OK')
 
@@ -82,11 +81,12 @@ class Tracker(Node):
             return
 
         dynamic_objects = DynamicObjectArray()
-        dynamic_object = DynamicObject()
 
         dynamic_objects.header = objects.header
+        dynamic_objects.header.frame_id = self.target_frame
 
         for obj in objects.objects:
+            dynamic_object = DynamicObject()
             self.transform_object(obj, tf.transform)
             dynamic_object.object = obj
             dynamic_objects.objects.append(dynamic_object)
