@@ -5,7 +5,6 @@ from scipy.spatial.transform import Rotation
 import rclpy
 import rclpy.clock
 import rclpy.logging
-import tf2_ros
 
 from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
