@@ -147,6 +147,7 @@ class Tracker(Node):
             dynamic_object.object = obj
             dynamic_objects.objects.append(dynamic_object)
 
+        self.output_diag.tick(msg_time.nanoseconds / 1e9)
         self.publisher.publish(dynamic_objects)
 
 
