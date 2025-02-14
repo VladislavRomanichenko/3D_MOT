@@ -2,6 +2,10 @@ import numpy as np
 from collections import namedtuple
 from scipy.spatial.transform import Rotation
 
+from tracker.tracker import Tracker3D
+from tracker.config import cfg, cfg_from_yaml_file
+from tracker.box_op import *
+
 import rclpy
 import rclpy.clock
 import rclpy.logging
@@ -26,7 +30,10 @@ class Tracker(Node):
     def __init__(self):
         super().__init__('tracker_node')
 
+        self.config = None
+
         self.get_logger().info('Initializing Tracker')
+        self.tracker = Tracker3D(box_type="Waymo", tracking_features=False, config = config)
 
         #Create subscriber and publisher
         self.subscriber = self.create_subscription(ObjectArray, "objects3d", self.tracker_callback, 1)
@@ -107,6 +114,34 @@ class Tracker(Node):
             np.dot(self.Rt_from_Transform(tf), self.Rt_from_Pose(obj.pose)))
 
 
+    def dynamic_msg_to_np(self, ):
+
+        #TODO
+
+        return None
+
+
+    def np_to_dynamic_msg(self, ):
+
+        #TODO
+
+        return None
+
+
+    def track_one_seq(self, tracker, objects, config):
+        """
+        tracking one sequence
+
+        Args:
+            config: config
+
+        Returns: dataset:
+            tracker: Tracker3D
+        """
+
+        #TODO
+
+
     def tracker_callback(self, objects):
         msg_time = Time.from_msg(objects.header.stamp)
         self.input_diag.tick(msg_time.nanoseconds / 1e9)
@@ -141,11 +176,10 @@ class Tracker(Node):
             #Transform object
             self.transform_object(obj, tf.transform)
 
-            #Track object
-            #...
-
             dynamic_object.object = obj
             dynamic_objects.objects.append(dynamic_object)
+
+            #TODO: tracker
 
         self.output_diag.tick(msg_time.nanoseconds / 1e9)
         self.publisher.publish(dynamic_objects)
