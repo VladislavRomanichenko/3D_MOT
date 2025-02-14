@@ -1,4 +1,4 @@
-import numpy
+import numpy as np
 from collections import namedtuple
 from scipy.spatial.transform import Rotation
 
@@ -79,7 +79,7 @@ class Tracker(Node):
 
 
     def Rt_from_tq(self, t, q):
-        Rt = numpy.eye(4)
+        Rt = np.eye(4)
         Rt[:3, :3] = Rotation.from_quat((q.x, q.y, q.z, q.w)).as_matrix()
         Rt[:3, 3] = t.x, t.y, t.z
         return Rt
@@ -104,7 +104,7 @@ class Tracker(Node):
 
     def transform_object(self, obj, tf):
         obj.pose = self.Pose_from_Rt(
-            numpy.dot(self.Rt_from_Transform(tf), self.Rt_from_Pose(obj.pose)))
+            np.dot(self.Rt_from_Transform(tf), self.Rt_from_Pose(obj.pose)))
 
 
     def tracker_callback(self, objects):

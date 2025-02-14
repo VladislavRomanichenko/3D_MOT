@@ -1,0 +1,23 @@
+# tracking type
+tracking_type: "Car"
+
+# KF parameters
+state_func_covariance: 100
+measure_func_covariance: 0.001
+prediction_score_decay: 0.02
+LiDAR_scanning_frequency: 10
+
+# max prediction number of state function
+max_prediction_num: 12
+max_prediction_num_for_new_object: 10
+
+# detection score threshold
+input_score: 0
+init_score: 0
+update_score: 0
+post_score: 1.
+
+# tracking latency (s)
+# -1: global tracking
+# 0.->500: online or near online tracking
+latency: 0 #ONLINE
