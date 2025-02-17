@@ -4,9 +4,9 @@ import numpy as np
 def convert_bbs_type(boxes, input_box_type):
     boxes = np.array(boxes)
 
-    assert input_box_type in ["Kitti", "OpenPCDet", "Waymo"], 'unsupported input box type!'
+    assert input_box_type in ["Kitti", "OpenPCDet", "Waymo", "Centerpoint"], 'unsupported input box type!'
 
-    if input_box_type in ["OpenPCDet", "Waymo"]:
+    if input_box_type in ["OpenPCDet", "Waymo", "Centerpoint"]:
         return boxes
 
     if input_box_type == "Kitti":  # (h,w,l,x,y,z,yaw) -> (x,y,z,l,w,h,yaw)

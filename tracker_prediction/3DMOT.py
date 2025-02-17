@@ -23,6 +23,7 @@ def track_one_seq(seq_id,config):
 
     tracker = Tracker3D(box_type="Kitti", tracking_features=False, config = config)
 
+    
     dataset = KittiTrackingDataset(dataset_path, seq_id=seq_id, ob_path=detections_path,type=[tracking_type])
 
 

@@ -33,7 +33,8 @@ class Tracker(Node):
         self.config = None
 
         self.get_logger().info('Initializing Tracker')
-        self.tracker = Tracker3D(box_type="Waymo", tracking_features=False, config = config)
+        #TODO: сделать правильный config для centerpoint
+        self.tracker = Tracker3D(box_type="Centerpoint", tracking_features=False, config = config)
 
         #Create subscriber and publisher
         self.subscriber = self.create_subscription(ObjectArray, "objects3d", self.tracker_callback, 1)
@@ -109,23 +110,48 @@ class Tracker(Node):
         return pose
 
 
+    def set_object_yaw(self, obj, yaw):
+            obj.pose.orientation.x = 0
+            obj.pose.orientation.y = 0
+            obj.pose.orientation.z = np.sin(yaw / 2)
+            obj.pose.orientation.w = np.cos(yaw / 2)
+
+
+    def get_object_yaw(self, obj):
+        yaw = np.arctan2(obj.pose.orientation.z, obj.pose.orientation.w)
+        return yaw
+
+
     def transform_object(self, obj, tf):
         obj.pose = self.Pose_from_Rt(
             np.dot(self.Rt_from_Transform(tf), self.Rt_from_Pose(obj.pose)))
 
 
-    def dynamic_msg_to_np(self, ):
+    def dynamic_msg_to_np_array(self, object):
+        """
+        Convert an DynamicObject from message to numpy array format (x, y, z, l, w, h, yaw) that corresponds to Centerpoint, Waymo, OpenPCDet
+        """
+        x, y, z = object.pose.position.x, object.pose.position.y, object.pose.position.z
+        l, w, h = object.size.x, object.size.y, object.size.z
+        yaw = self.get_object_yaw(object)
+        
+        return np.array([x, y, z, l, w, h, yaw])
 
-        #TODO
 
-        return None
-
-
-    def np_to_dynamic_msg(self, ):
-
-        #TODO
-
-        return None
+    def np_array_to_dynamic_msg(self, array):
+        """
+        Convert numpy array (x, y, z, l, w, h, yaw) -> DynamicObject
+        """
+        dynamic_object = DynamicObject()
+        
+        dynamic_object.object.pose.position.x, dynamic_object.object.pose.position.y, dynamic_object.object.pose.position.z = array[:3]
+        dynamic_object.object.size.x, dynamic_object.object.size.y, dynamic_object.object.size.z = array[3:6]
+        
+        yaw = array[6]
+        
+        self.set_object_yaw(dynamic_object.object, yaw)
+        
+        return dynamic_object
 
 
     def track_one_seq(self, tracker, objects, config):
@@ -139,7 +165,7 @@ class Tracker(Node):
             tracker: Tracker3D
         """
 
-        #TODO
+        #TODO: перенести всё лишнее из callback в обну функцию
 
 
     def tracker_callback(self, objects):
@@ -170,16 +196,37 @@ class Tracker(Node):
         dynamic_objects.header = objects.header
         dynamic_objects.header.frame_id = self.target_frame
 
+        #Objects list for tracker
+        bbox_list = []
+        score_list = []
+
         for obj in objects.objects:
-            dynamic_object = DynamicObject()
 
             #Transform object
             self.transform_object(obj, tf.transform)
 
-            dynamic_object.object = obj
-            dynamic_objects.objects.append(dynamic_object)
+            #Convert msg to numpy array
+            bbox = self.dynamic_msg_to_np_array(obj)
 
-            #TODO: tracker
+            bbox_list.append(bbox)
+            score_list.append(obj.score)  
+
+        if len(bbox_list) > 0:
+            bbox_array = np.array(bbox_list)
+            score_array = np.array(score_list)
+
+            #Track
+            tracked_bboxes, track_ids = self.tracker.tracking(
+                bbs_3D=bbox_array,
+                scores=score_array,
+                timestamp=msg_time.nanoseconds // 1e6  
+            )
+
+        #Convert numpy array to msg
+        for i in range(len(tracked_bboxes)):
+            tracked_object = self.np_array_to_dynamic_msg(tracked_bboxes[i])
+            tracked_object.id = track_ids[i]  
+            dynamic_objects.objects.append(tracked_object)
 
         self.output_diag.tick(msg_time.nanoseconds / 1e9)
         self.publisher.publish(dynamic_objects)

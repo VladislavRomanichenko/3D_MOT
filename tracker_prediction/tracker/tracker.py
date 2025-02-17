@@ -12,7 +12,7 @@ class Tracker3D:
         Args:
             tracking_features: bool, if tracking the features
             bb_as_features: bool, if tracking the bbs
-            box_type: str, box type, available box type "OpenPCDet", "Kitti", "Waymo"
+            box_type: str, box type, available box type "OpenPCDet", "Kitti", "Waymo", "Centerpoint"
         """
         self.config = config
         self.current_timestamp = None
