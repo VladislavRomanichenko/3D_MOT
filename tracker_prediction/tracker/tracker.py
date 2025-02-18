@@ -5,7 +5,7 @@ import numpy as np
 class Tracker3D:
     def __init__(self,tracking_features=False,
                     bb_as_features=False,
-                    box_type='Kitti',
+                    box_type='Centerpoint',
                     config = None):
         """
         initialize the the 3D tracker
@@ -37,7 +37,7 @@ class Tracker3D:
         """
         tracking the objects at the given timestamp
         Args:
-            bbs: array(N,7) or array(N，7*k), 3D bounding boxes or 3D tracklets
+            bbs: array(N,7) or array(N, 7*k), 3D bounding boxes or 3D tracklets
                 for tracklets, the boxes should be organized to [[box_t; box_t-1; box_t-2;...],...]
             features: array(N,k), the features of boxes or tracklets
             scores: array(N,), the detection score of boxes or tracklets
@@ -125,7 +125,7 @@ class Tracker3D:
             if self.current_features is not None:
                 features = self.current_features[i]
             score = self.current_scores[i]
-            label=1
+            label = 1
             new_tra = Trajectory(init_bb=box,
                                  init_features=features,
                                  init_score=score,

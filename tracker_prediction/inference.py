@@ -29,12 +29,13 @@ class Tracker(Node):
 
     def __init__(self):
         super().__init__('tracker_node')
-
-        self.config = None
+        
+        yaml_file = "config/online/centerpoint_mot.yaml"
+        self.config = cfg_from_yaml_file(yaml_file, cfg)
 
         self.get_logger().info('Initializing Tracker')
-        #TODO: сделать правильный config для centerpoint
-        self.tracker = Tracker3D(box_type="Centerpoint", tracking_features=False, config = config)
+        #TODO: проверить загрузку config
+        self.tracker = Tracker3D(box_type="Centerpoint", tracking_features=False, config = self.config)
 
         #Create subscriber and publisher
         self.subscriber = self.create_subscription(ObjectArray, "objects3d", self.tracker_callback, 1)
@@ -165,7 +166,7 @@ class Tracker(Node):
             tracker: Tracker3D
         """
 
-        #TODO: перенести всё лишнее из callback в обну функцию
+        #TODO: перенести всё лишнее из callback в одну функцию
 
 
     def tracker_callback(self, objects):
