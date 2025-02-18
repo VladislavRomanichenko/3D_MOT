@@ -30,15 +30,14 @@ class Tracker(Node):
     def __init__(self):
         super().__init__('tracker_node')
 
-        yaml_file = "/home/vlad/Desktop/waymo_tracker/tracker_prediction/config/online/centerpoint_mot.yaml"
+        yaml_file = "/home/user/workspace/temp_romanichenko/tracker/waymo_tracker/tracker_prediction/config/online/centerpoint_mot.yaml"
         self.config = cfg_from_yaml_file(yaml_file, cfg)
 
         self.get_logger().info('Initializing Tracker')
-        #TODO: проверить загрузку config
         self.tracker = Tracker3D(box_type="Centerpoint", tracking_features=False, config = self.config)
 
         #Create subscriber and publisher
-        self.subscriber = self.create_subscription(ObjectArray, "objects3d", self.tracker_callback, 1)
+        self.subscriber = self.create_subscription(ObjectArray, "/centerpoint/objects3d", self.tracker_callback, 1)
         self.publisher = self.create_publisher(DynamicObjectArray, "tracker", 1)
 
         #Create parameter for transformation
@@ -52,6 +51,9 @@ class Tracker(Node):
         #Create diagnostic
         self.tf_error = None
         self.prev_time = None
+
+        #TODO: переделать timestamp под непоследовательные числа, а под значения из ROS хедера
+        self.timestamp_for_tracker = 0
 
         self.updater = diagnostic_updater.Updater(self)
         self.updater.setHardwareID('none')
@@ -112,8 +114,8 @@ class Tracker(Node):
 
 
     def set_object_yaw(self, obj, yaw):
-            obj.pose.orientation.x = 0
-            obj.pose.orientation.y = 0
+            obj.pose.orientation.x = 0.0
+            obj.pose.orientation.y = 0.0
             obj.pose.orientation.z = np.sin(yaw / 2)
             obj.pose.orientation.w = np.cos(yaw / 2)
 
@@ -171,6 +173,7 @@ class Tracker(Node):
 
     def tracker_callback(self, objects):
         msg_time = Time.from_msg(objects.header.stamp)
+
         self.input_diag.tick(msg_time.nanoseconds / 1e9)
 
         if self.prev_time is not None and self.prev_time > msg_time:
@@ -179,8 +182,6 @@ class Tracker(Node):
             self.tf_buffer.clear()
             self.prev_time = msg_time
             return
-
-        self.prev_time = msg_time
 
         try:
             self.tf_error = None
@@ -221,15 +222,18 @@ class Tracker(Node):
                 bbs_3D=bbox_array,
                 features=None,
                 scores=score_array,
-                timestamp=msg_time.nanoseconds // 1e6
+                timestamp=self.timestamp_for_tracker #Здесь идут просто последовательные числа(TODO: надо будет переписать класс Trajectory)
+                #timestamp=msg_time.nanoseconds // 1e6
             )
+            self.timestamp_for_tracker += 1
 
-        #Convert numpy array to msg
-        for i in range(len(tracked_bboxes)):
-            tracked_object = self.np_array_to_dynamic_msg(tracked_bboxes[i])
-            tracked_object.id = track_ids[i]
-            dynamic_objects.objects.append(tracked_object)
+            #Convert numpy array to msg
+            for i in range(len(tracked_bboxes)):
+                tracked_object = self.np_array_to_dynamic_msg(tracked_bboxes[i])
+                tracked_object.object.id = int(track_ids[i])
+                dynamic_objects.objects.append(tracked_object)
 
+        self.prev_time = msg_time
         self.output_diag.tick(msg_time.nanoseconds / 1e9)
         self.publisher.publish(dynamic_objects)
 
