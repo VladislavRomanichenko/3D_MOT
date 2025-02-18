@@ -219,6 +219,7 @@ class Tracker(Node):
             #Track
             tracked_bboxes, track_ids = self.tracker.tracking(
                 bbs_3D=bbox_array,
+                features=None,
                 scores=score_array,
                 timestamp=msg_time.nanoseconds // 1e6  
             )
