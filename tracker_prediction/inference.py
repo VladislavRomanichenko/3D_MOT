@@ -29,8 +29,8 @@ class Tracker(Node):
 
     def __init__(self):
         super().__init__('tracker_node')
-        
-        yaml_file = "config/online/centerpoint_mot.yaml"
+
+        yaml_file = "/home/vlad/Desktop/waymo_tracker/tracker_prediction/config/online/centerpoint_mot.yaml"
         self.config = cfg_from_yaml_file(yaml_file, cfg)
 
         self.get_logger().info('Initializing Tracker')
@@ -135,7 +135,7 @@ class Tracker(Node):
         x, y, z = object.pose.position.x, object.pose.position.y, object.pose.position.z
         l, w, h = object.size.x, object.size.y, object.size.z
         yaw = self.get_object_yaw(object)
-        
+
         return np.array([x, y, z, l, w, h, yaw])
 
 
@@ -144,14 +144,14 @@ class Tracker(Node):
         Convert numpy array (x, y, z, l, w, h, yaw) -> DynamicObject
         """
         dynamic_object = DynamicObject()
-        
+
         dynamic_object.object.pose.position.x, dynamic_object.object.pose.position.y, dynamic_object.object.pose.position.z = array[:3]
         dynamic_object.object.size.x, dynamic_object.object.size.y, dynamic_object.object.size.z = array[3:6]
-        
+
         yaw = array[6]
-        
+
         self.set_object_yaw(dynamic_object.object, yaw)
-        
+
         return dynamic_object
 
 
@@ -210,7 +210,7 @@ class Tracker(Node):
             bbox = self.dynamic_msg_to_np_array(obj)
 
             bbox_list.append(bbox)
-            score_list.append(obj.score)  
+            score_list.append(obj.score)
 
         if len(bbox_list) > 0:
             bbox_array = np.array(bbox_list)
@@ -221,13 +221,13 @@ class Tracker(Node):
                 bbs_3D=bbox_array,
                 features=None,
                 scores=score_array,
-                timestamp=msg_time.nanoseconds // 1e6  
+                timestamp=msg_time.nanoseconds // 1e6
             )
 
         #Convert numpy array to msg
         for i in range(len(tracked_bboxes)):
             tracked_object = self.np_array_to_dynamic_msg(tracked_bboxes[i])
-            tracked_object.id = track_ids[i]  
+            tracked_object.id = track_ids[i]
             dynamic_objects.objects.append(tracked_object)
 
         self.output_diag.tick(msg_time.nanoseconds / 1e9)

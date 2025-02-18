@@ -1,4 +1,4 @@
-import np as np
+import numpy as np
 from .object import Object
 
 class Trajectory:
