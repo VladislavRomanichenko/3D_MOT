@@ -2,9 +2,9 @@ import numpy as np
 from collections import namedtuple
 from scipy.spatial.transform import Rotation
 
-from tracker.tracker import Tracker3D
-from tracker.config import cfg, cfg_from_yaml_file
-from tracker.box_op import *
+from .tracker.tracker import Tracker3D
+from .tracker.config import cfg, cfg_from_yaml_file
+from .tracker.box_op import *
 
 import rclpy
 import rclpy.clock
@@ -30,15 +30,15 @@ class Tracker(Node):
     def __init__(self):
         super().__init__('tracker_node')
 
-        yaml_file = "/home/user/workspace/temp_romanichenko/tracker/waymo_tracker/tracker_prediction/config/online/centerpoint_mot.yaml"
+        yaml_file = self.declare_parameter('config', 'centerpoint_mot.yaml').value
         self.config = cfg_from_yaml_file(yaml_file, cfg)
 
         self.get_logger().info('Initializing Tracker')
         self.tracker = Tracker3D(box_type="Centerpoint", tracking_features=False, config = self.config)
 
         #Create subscriber and publisher
-        self.subscriber = self.create_subscription(ObjectArray, "/centerpoint/objects3d", self.tracker_callback, 1)
-        self.publisher = self.create_publisher(DynamicObjectArray, "tracker", 1)
+        self.subscriber = self.create_subscription(ObjectArray, "objects", self.tracker_callback, 10)
+        self.publisher = self.create_publisher(DynamicObjectArray, "tracks", 10)
 
         #Create parameter for transformation
         self.timeout = Duration(seconds=self.declare_parameter("timeout", 0.3).value)
@@ -179,7 +179,7 @@ class Tracker(Node):
         if self.prev_time is not None and self.prev_time > msg_time:
             self.updater.broadcast(DiagnosticStatus.WARN,
                                    'Detect jump in time: reset tf buffer')
-            self.tf_buffer.clear()
+            self.buffer.clear()
             self.prev_time = msg_time
             return
 
