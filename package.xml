@@ -10,7 +10,7 @@
   <depend>rclpy</depend>
   <depend>objects_msgs</depend>
   <depend>diagnostic_updater</depend>
-
+  <exec_depend>ros2launch</exec_depend>
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
 

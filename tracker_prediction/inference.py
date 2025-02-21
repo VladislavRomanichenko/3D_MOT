@@ -121,9 +121,13 @@ class Tracker(Node):
 
 
     def get_object_yaw(self, obj):
-        yaw = np.arctan2(obj.pose.orientation.z, obj.pose.orientation.w)
-        return yaw
+        x = obj.pose.orientation.x
+        y = obj.pose.orientation.y
+        z = obj.pose.orientation.z
+        w = obj.pose.orientation.w
 
+        yaw = np.arctan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
+        return yaw
 
     def transform_object(self, obj, tf):
         obj.pose = self.Pose_from_Rt(
