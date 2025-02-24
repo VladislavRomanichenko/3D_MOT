@@ -15,7 +15,7 @@ max_prediction_num_for_new_object: 10
 input_score: 0
 init_score: 0
 update_score: 0
-post_score: 1.
+post_score: 0.5
 
 # tracking latency (s)
 # -1: global tracking

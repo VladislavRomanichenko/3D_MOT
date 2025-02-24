@@ -71,7 +71,6 @@ class Tracker3D:
                 return np.array(bbs),np.array(ids)
 
 
-
     def trajectores_prediction(self):
         """
         predict the possible state of each active trajectories, if the trajectory is not updated for a while,
@@ -85,17 +84,20 @@ class Tracker3D:
             dead_track_id = []
 
             for key in self.active_trajectories.keys():
-                if self.active_trajectories[key].consecutive_missed_num>=self.config.max_prediction_num:
+                if self.active_trajectories[key].consecutive_missed_num >= self.config.max_prediction_num:
                     dead_track_id.append(key)
                     continue
-                if len(self.active_trajectories[key])-self.active_trajectories[key].consecutive_missed_num == 1 \
-                    and len(self.active_trajectories[key])>= self.config.max_prediction_num_for_new_object :
+
+                if len(self.active_trajectories[key]) - self.active_trajectories[key].consecutive_missed_num == 1 \
+                    and len(self.active_trajectories[key]) >= self.config.max_prediction_num_for_new_object:
                     dead_track_id.append(key)
+
                 self.active_trajectories[key].state_prediction(self.current_timestamp)
 
             for id in dead_track_id:
                 tra = self.active_trajectories.pop(id)
-                self.dead_trajectories[id]=tra
+                self.dead_trajectories[id] = tra
+
 
     def compute_cost_map(self):
         """
@@ -157,6 +159,7 @@ class Tracker3D:
         cost = dis*all_predictions[...,-1]
 
         return cost,all_ids
+
 
     def association(self):
         """
@@ -244,17 +247,15 @@ class Tracker3D:
 
         """
         tra = {}
+
         for key in self.dead_trajectories.keys():
             track = self.dead_trajectories[key]
             track.filtering(config)
             tra[key] = track
+
         for key in self.active_trajectories.keys():
             track = self.active_trajectories[key]
             track.filtering(config)
             tra[key] = track
 
         return tra
-
-
-
-

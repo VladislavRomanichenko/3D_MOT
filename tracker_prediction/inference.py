@@ -231,6 +231,28 @@ class Tracker(Node):
             )
             self.timestamp_for_tracker += 1
 
+            tracks = self.tracker.post_processing(self.config)
+
+            frame_first_dict = {}
+            for ob_id in tracks.keys():
+                track = tracks[ob_id]
+
+                for frame_id in track.trajectory.keys():
+                    ob = track.trajectory[frame_id]
+
+                    if ob.updated_state is None:
+                        continue
+
+                    if ob.score < self.config.post_score:
+                        continue
+
+                    if frame_id in frame_first_dict.keys():
+                        frame_first_dict[frame_id][ob_id] = (np.array(ob.updated_state.T), ob.score)
+                        #self.get_logger().info(f'{frame_first_dict[frame_id][ob_id]}')
+                    else:
+                        frame_first_dict[frame_id] = {ob_id:(np.array(ob.updated_state.T), ob.score)}
+                        #self.get_logger().info(f'{frame_first_dict[frame_id]}')
+
             #Convert numpy array to msg
             for i in range(len(tracked_bboxes)):
                 tracked_object = self.np_array_to_dynamic_msg(tracked_bboxes[i])
