@@ -1,6 +1,7 @@
 from .trajectory import Trajectory
 from .box_op import *
 import numpy as np
+import copy
 
 class Tracker3D:
     def __init__(self,tracking_features=False,
@@ -97,6 +98,26 @@ class Tracker3D:
             for id in dead_track_id:
                 tra = self.active_trajectories.pop(id)
                 self.dead_trajectories[id] = tra
+
+
+#----------------------------------TODO------------------------------------------
+    def predict_future_trajectories(self, steps=3):
+        future_predictions = {}
+        last_timestamp = self.current_timestamp
+        
+        for track_id, trajectory in self.active_trajectories.items():
+            future_states = []
+            temp_trajectory = copy.deepcopy(trajectory)
+            for step in range(1, steps + 1):
+                next_timestamp = last_timestamp + step
+                temp_trajectory.state_prediction(next_timestamp)
+                predicted_state = temp_trajectory.trajectory[next_timestamp].predicted_state
+                future_states.append((np.array(predicted_state.T), next_timestamp))
+            
+            future_predictions[track_id] = future_states
+        
+        return future_predictions
+#--------------------------------------------------------------------------------
 
 
     def compute_cost_map(self):

@@ -253,6 +253,15 @@ class Tracker(Node):
                         frame_first_dict[frame_id] = {ob_id:(np.array(ob.updated_state.T), ob.score)}
                         #self.get_logger().info(f'{frame_first_dict[frame_id]}')
 
+#----------------------------------TODO------------------------------------------
+            future_predictions = self.tracker.predict_future_trajectories(steps=3)
+            
+            for track_id, predictions in future_predictions.items():
+                self.get_logger().info(f"ID: {track_id}")
+                for state, timestamp in predictions:
+                    self.get_logger().info(f"Predicted state at timestamp {timestamp}: {state}")
+#--------------------------------------------------------------------------------
+
             #Convert numpy array to msg
             for i in range(len(tracked_bboxes)):
                 tracked_object = self.np_array_to_dynamic_msg(tracked_bboxes[i])

@@ -2,8 +2,10 @@
 tracking_type: "Car"
 
 # KF parameters
-state_func_covariance: 100
-measure_func_covariance: 0.001
+# state_func_covariance: 100
+# measure_func_covariance: 0.001
+state_func_covariance: 1 
+measure_func_covariance: 0.01
 prediction_score_decay: 0.02
 LiDAR_scanning_frequency: 10
 
