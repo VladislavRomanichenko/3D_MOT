@@ -101,10 +101,11 @@ class Tracker3D:
 
 
 #----------------------------------TODO------------------------------------------
-    def predict_future_trajectories(self, steps=3):
+    def predict_future_trajectories(self, steps=4):
+
         future_predictions = {}
         last_timestamp = self.current_timestamp
-        
+
         for track_id, trajectory in self.active_trajectories.items():
             future_states = []
             temp_trajectory = copy.deepcopy(trajectory)
@@ -113,9 +114,9 @@ class Tracker3D:
                 temp_trajectory.state_prediction(next_timestamp)
                 predicted_state = temp_trajectory.trajectory[next_timestamp].predicted_state
                 future_states.append((np.array(predicted_state.T), next_timestamp))
-            
+
             future_predictions[track_id] = future_states
-        
+
         return future_predictions
 #--------------------------------------------------------------------------------
 

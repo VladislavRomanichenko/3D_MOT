@@ -254,12 +254,12 @@ class Tracker(Node):
                         #self.get_logger().info(f'{frame_first_dict[frame_id]}')
 
 #----------------------------------TODO------------------------------------------
-            future_predictions = self.tracker.predict_future_trajectories(steps=3)
-            
+            future_predictions = self.tracker.predict_future_trajectories(steps=5)
+
             for track_id, predictions in future_predictions.items():
                 self.get_logger().info(f"ID: {track_id}")
                 for state, timestamp in predictions:
-                    self.get_logger().info(f"Predicted state at timestamp {timestamp}: {state}")
+                    self.get_logger().info(f"Predicted state at timestamp {timestamp}: {state[:3]}") #State до 3, это x, y, z, далее идут скорости, размеры и т.д.
 #--------------------------------------------------------------------------------
 
             #Convert numpy array to msg
