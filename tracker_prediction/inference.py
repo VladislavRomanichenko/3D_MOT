@@ -19,7 +19,7 @@ from rclpy.duration import Duration
 from rclpy.time import Time
 
 from objects_msgs.msg import ObjectArray, DynamicObjectArray, DynamicObject
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
 
 import diagnostic_updater
 from diagnostic_msgs.msg import DiagnosticStatus
@@ -233,40 +233,69 @@ class Tracker(Node):
 
             tracks = self.tracker.post_processing(self.config)
 
-            frame_first_dict = {}
-            for ob_id in tracks.keys():
-                track = tracks[ob_id]
+            # frame_first_dict = {}
+            # for ob_id in tracks.keys():
+            #     track = tracks[ob_id]
 
-                for frame_id in track.trajectory.keys():
-                    ob = track.trajectory[frame_id]
+            #     for frame_id in track.trajectory.keys():
+            #         ob = track.trajectory[frame_id]
 
-                    if ob.updated_state is None:
-                        continue
+            #         if ob.updated_state is None:
+            #             continue
 
-                    if ob.score < self.config.post_score:
-                        continue
+            #         if ob.score < self.config.post_score:
+            #             continue
 
-                    if frame_id in frame_first_dict.keys():
-                        frame_first_dict[frame_id][ob_id] = (np.array(ob.updated_state.T), ob.score)
-                        #self.get_logger().info(f'{frame_first_dict[frame_id][ob_id]}')
-                    else:
-                        frame_first_dict[frame_id] = {ob_id:(np.array(ob.updated_state.T), ob.score)}
-                        #self.get_logger().info(f'{frame_first_dict[frame_id]}')
+            #         if frame_id in frame_first_dict.keys():
+            #             frame_first_dict[frame_id][ob_id] = (np.array(ob.updated_state.T), ob.score)
+            #             #self.get_logger().info(f'{frame_first_dict[frame_id][ob_id]}')
+            #         else:
+            #             frame_first_dict[frame_id] = {ob_id:(np.array(ob.updated_state.T), ob.score)}
+            #             #self.get_logger().info(f'{frame_first_dict[frame_id]}')
 
 #----------------------------------TODO------------------------------------------
-            future_predictions = self.tracker.predict_future_trajectories(steps=5)
+            future_predictions = self.tracker.predict_future_trajectories(steps=15)
 
-            for track_id, predictions in future_predictions.items():
-                self.get_logger().info(f"ID: {track_id}")
-                for state, timestamp in predictions:
-                    self.get_logger().info(f"Predicted state at timestamp {timestamp}: {state[0][:3]}") #State до 3, это x, y, z, далее #... vx,vy,vz,ax,ay,az,w,h,l,yaw
-#--------------------------------------------------------------------------------
+            # for track_id, predictions in future_predictions.items():
+            #     self.get_logger().info(f"ID: {track_id}")
+            #     for state in predictions:
+            #         self.get_logger().info(f"Predicted state: {state[0][:3]}") #State до 3, это x, y, z, далее #... vx,vy,vz,ax,ay,az,w,h,l,yaw
+
+            # for frame_id, trajectory in frame_first_dict.items():
+            #     self.get_logger().info(f"ID: {frame_id}")
+            #     for ob_id, (state, score) in trajectory.items():
+            #         self.get_logger().info(f"Object ID: {ob_id}, State: {state[0][:3]}, Score: {score}")
+
 
             #Convert numpy array to msg
             for i in range(len(tracked_bboxes)):
+                #Заполнение объекта
                 tracked_object = self.np_array_to_dynamic_msg(tracked_bboxes[i])
                 tracked_object.object.id = int(track_ids[i])
+
+
+
+                #Заполнение предсказаний объекта в порядке возрастания времени
+                for preds in future_predictions[track_ids[i]]:
+                    preds = preds[0]
+                    preds_pose = PoseStamped()
+
+                    preds_pose.pose.position.x = preds[0]
+                    preds_pose.pose.position.y = preds[1]
+                    preds_pose.pose.position.z = preds[2]
+
+                    preds_pose.header = objects.header
+                    preds_pose.header.frame_id = self.target_frame
+
+                    self.set_object_yaw(preds_pose, preds[12]) #Заполнение ориентаци
+
+                    tracked_object.prediction.append(preds_pose)
+
+                #Заполнение предыдущих траекторий в порядке возрастания времени
+
+
                 dynamic_objects.objects.append(tracked_object)
+#--------------------------------------------------------------------------------
 
         self.prev_time = msg_time
         self.output_diag.tick(msg_time.nanoseconds / 1e9)

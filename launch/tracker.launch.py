@@ -10,7 +10,7 @@ def generate_launch_description():
             namespace='centerpoint',
             parameters=[
                 {'target_frame': 'local_map'},
-                {'config': '/home/vlad/Desktop/waymo_tracker/tracker_prediction/config/online/centerpoint_mot.yaml'},
+                {'config': '/home/vlad/Desktop/mot_tracker/tracker_prediction/config/online/centerpoint_mot.yaml'},
                 {'timeout': 0.01},
             ],
             remappings=[

@@ -100,10 +100,9 @@ class Tracker3D:
                 self.dead_trajectories[id] = tra
 
 
-#----------------------------------TODO------------------------------------------
 #TODO Сделать проверку на скорость, если она равна нулю по всем осям, то не надо продолжать предсказывать
 
-    def predict_future_trajectories(self, steps=4):
+    def predict_future_trajectories(self, steps=0):
 
         future_predictions = {}
         last_timestamp = self.current_timestamp
@@ -115,12 +114,11 @@ class Tracker3D:
                 next_timestamp = last_timestamp + step
                 temp_trajectory.state_prediction(next_timestamp)
                 predicted_state = temp_trajectory.trajectory[next_timestamp].predicted_state
-                future_states.append((np.array(predicted_state.T), next_timestamp))
+                future_states.append(np.array(predicted_state.T))
 
             future_predictions[track_id] = future_states
 
         return future_predictions
-#--------------------------------------------------------------------------------
 
 
     def compute_cost_map(self):
