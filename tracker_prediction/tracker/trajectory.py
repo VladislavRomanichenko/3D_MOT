@@ -184,6 +184,7 @@ class Trajectory:
     def sigmoid(self,x):
         return 1.0 / (1 + np.exp(-float(x)))
 
+
     def state_update(self,
                      bb=None,
                      features=None,
@@ -253,6 +254,7 @@ class Trajectory:
 
         self.consecutive_missed_num = 0
         self.last_updated_timestamp = timestamp
+
 
     def filtering(self,config):
         """

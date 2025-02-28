@@ -167,12 +167,13 @@ class Tracker(Node):
         tracking one sequence
 
         Args:
+            tracker: tracker
+            objects: objects
             config: config
 
         Returns: dataset:
             tracker: Tracker3D
         """
-
         #TODO: перенести всё лишнее из callback в одну функцию
 
 
