@@ -129,6 +129,7 @@ class Tracker(Node):
         yaw = np.arctan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
         return yaw
 
+
     def transform_object(self, obj, tf):
         obj.pose = self.Pose_from_Rt(
             np.dot(self.Rt_from_Transform(tf), self.Rt_from_Pose(obj.pose)))
@@ -194,7 +195,6 @@ class Tracker(Node):
                 objects.header.stamp, self.timeout)
         except TransformException as ex:
             self.tf_error = f'tf lookup error: {ex}'
-            #self.get_logger().warn(f'tf lookup error: {ex}')
             self.updater.force_update()
             return
 
@@ -233,38 +233,43 @@ class Tracker(Node):
 
             tracks = self.tracker.post_processing(self.config)
 
-            # frame_first_dict = {}
-            # for ob_id in tracks.keys():
-            #     track = tracks[ob_id]
+            #Предыдущие траектории для каждого текущего объекта, забивает память
+            frame_first_dict = {}
 
-            #     for frame_id in track.trajectory.keys():
-            #         ob = track.trajectory[frame_id]
+            for ob_id in tracks.keys():
+                track = tracks[ob_id]
 
-            #         if ob.updated_state is None:
-            #             continue
+                for frame_id in track.trajectory.keys():
+                    ob = track.trajectory[frame_id]
 
-            #         if ob.score < self.config.post_score:
-            #             continue
+                    if ob.updated_state is None:
+                        continue
 
-            #         if frame_id in frame_first_dict.keys():
-            #             frame_first_dict[frame_id][ob_id] = (np.array(ob.updated_state.T), ob.score)
-            #             #self.get_logger().info(f'{frame_first_dict[frame_id][ob_id]}')
-            #         else:
-            #             frame_first_dict[frame_id] = {ob_id:(np.array(ob.updated_state.T), ob.score)}
-            #             #self.get_logger().info(f'{frame_first_dict[frame_id]}')
+                    if ob.score < self.config.post_score:
+                        continue
 
-#----------------------------------TODO------------------------------------------
+                    if frame_id in frame_first_dict.keys():
+                        frame_first_dict[frame_id][ob_id] = (np.array(ob.updated_state.T), ob.score)
+                        #self.get_logger().info(f'{frame_first_dict[frame_id][ob_id]}')
+                    else:
+                        frame_first_dict[frame_id] = {ob_id:(np.array(ob.updated_state.T), ob.score)}
+                        #self.get_logger().info(f'{frame_first_dict[frame_id]}')
+
             future_predictions = self.tracker.predict_future_trajectories(steps=15)
 
-            # for track_id, predictions in future_predictions.items():
-            #     self.get_logger().info(f"ID: {track_id}")
-            #     for state in predictions:
-            #         self.get_logger().info(f"Predicted state: {state[0][:3]}") #State до 3, это x, y, z, далее #... vx,vy,vz,ax,ay,az,w,h,l,yaw
+            #Отладка
+            log = False
 
-            # for frame_id, trajectory in frame_first_dict.items():
-            #     self.get_logger().info(f"ID: {frame_id}")
-            #     for ob_id, (state, score) in trajectory.items():
-            #         self.get_logger().info(f"Object ID: {ob_id}, State: {state[0][:3]}, Score: {score}")
+            if log:
+                for track_id, predictions in future_predictions.items():
+                    self.get_logger().info(f"ID: {track_id}")
+                    for state in predictions:
+                        self.get_logger().info(f"Predicted state: {state[0][:3]}") #State до 3, это x, y, z, далее #... vx,vy,vz,ax,ay,az,w,h,l,yaw
+
+                for frame_id, trajectory in frame_first_dict.items():
+                    self.get_logger().info(f"ID: {frame_id}")
+                    for ob_id, (state, score) in trajectory.items():
+                        self.get_logger().info(f"Object ID: {ob_id}, State: {state[0][:3]}, Score: {score}")
 
 
             #Convert numpy array to msg
@@ -272,8 +277,6 @@ class Tracker(Node):
                 #Заполнение объекта
                 tracked_object = self.np_array_to_dynamic_msg(tracked_bboxes[i])
                 tracked_object.object.id = int(track_ids[i])
-
-
 
                 #Заполнение предсказаний объекта в порядке возрастания времени
                 for preds in future_predictions[track_ids[i]]:
@@ -292,10 +295,9 @@ class Tracker(Node):
                     tracked_object.prediction.append(preds_pose)
 
                 #Заполнение предыдущих траекторий в порядке возрастания времени
-
+                #...
 
                 dynamic_objects.objects.append(tracked_object)
-#--------------------------------------------------------------------------------
 
         self.prev_time = msg_time
         self.output_diag.tick(msg_time.nanoseconds / 1e9)
