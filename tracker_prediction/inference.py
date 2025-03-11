@@ -30,6 +30,8 @@ class Tracker(Node):
     def __init__(self):
         super().__init__('tracker_node')
 
+        self.tracker_flag = self.declare_parameter('config', False).value
+
         yaml_file = self.declare_parameter('config', 'centerpoint_mot.yaml').value
         self.config = cfg_from_yaml_file(yaml_file, cfg)
 
@@ -162,29 +164,13 @@ class Tracker(Node):
         return dynamic_object
 
 
-    def track_one_seq(self, tracker, objects, config):
-        """
-        tracking one sequence
-
-        Args:
-            tracker: tracker
-            objects: objects
-            config: config
-
-        Returns: dataset:
-            tracker: Tracker3D
-        """
-        #TODO: перенести всё лишнее из callback в одну функцию
-
-
     def tracker_callback(self, objects):
         msg_time = Time.from_msg(objects.header.stamp)
 
         self.input_diag.tick(msg_time.nanoseconds / 1e9)
 
         if self.prev_time is not None and self.prev_time > msg_time:
-            self.updater.broadcast(DiagnosticStatus.WARN,
-                                   'Detect jump in time: reset tf buffer')
+            self.updater.broadcast(DiagnosticStatus.WARN, 'Detect jump in time: reset tf buffer')
             self.buffer.clear()
             self.prev_time = msg_time
             return
@@ -212,13 +198,19 @@ class Tracker(Node):
             #Transform object
             self.transform_object(obj, tf.transform)
 
-            #Convert msg to numpy array
-            bbox = self.dynamic_msg_to_np_array(obj)
+            if self.tracker_flag:
+                #Convert msg to numpy array
+                bbox = self.dynamic_msg_to_np_array(obj)
 
-            bbox_list.append(bbox)
-            score_list.append(obj.score)
+                bbox_list.append(bbox)
+                score_list.append(obj.score)
+            else:
+                dynamic_object = DynamicObject()
+                dynamic_object.object = obj
+                dynamic_objects.objects.append(dynamic_object)
 
-        if len(bbox_list) > 0:
+
+        if len(bbox_list) > 0 and self.tracker_flag:
             bbox_array = np.array(bbox_list)
             score_array = np.array(score_list)
 
@@ -251,26 +243,10 @@ class Tracker(Node):
 
                     if frame_id in frame_first_dict.keys():
                         frame_first_dict[frame_id][ob_id] = (np.array(ob.updated_state.T), ob.score)
-                        #self.get_logger().info(f'{frame_first_dict[frame_id][ob_id]}')
                     else:
                         frame_first_dict[frame_id] = {ob_id:(np.array(ob.updated_state.T), ob.score)}
-                        #self.get_logger().info(f'{frame_first_dict[frame_id]}')
 
             future_predictions = self.tracker.predict_future_trajectories(steps=15)
-
-            #Отладка
-            log = False
-
-            if log:
-                for track_id, predictions in future_predictions.items():
-                    self.get_logger().info(f"ID: {track_id}")
-                    for state in predictions:
-                        self.get_logger().info(f"Predicted state: {state[0][:3]}") #State до 3, это x, y, z, далее #... vx,vy,vz,ax,ay,az,w,h,l,yaw
-
-                for frame_id, trajectory in frame_first_dict.items():
-                    self.get_logger().info(f"ID: {frame_id}")
-                    for ob_id, (state, score) in trajectory.items():
-                        self.get_logger().info(f"Object ID: {ob_id}, State: {state[0][:3]}, Score: {score}")
 
 
             #Convert numpy array to msg

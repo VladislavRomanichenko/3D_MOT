@@ -123,31 +123,6 @@ class Tracker3D:
         return future_predictions
 
 
-    # def compute_cost_map(self):
-    #     all_ids = list(self.active_trajectories.keys())
-    #     all_predictions = np.array([
-    #         np.concatenate([np.array(self.active_trajectories[key].trajectory[self.current_timestamp].predicted_state).flatten(),
-    #                         [self.active_trajectories[key].trajectory[self.current_timestamp].prediction_score]])
-    #         for key in all_ids
-    #     ])
-    #     all_detections = np.array([
-    #         np.array(Trajectory(
-    #             init_bb=self.current_bbs[i],
-    #             init_features=self.current_features[i] if self.current_features is not None else None,
-    #             init_score=self.current_scores[i],
-    #             init_timestamp=self.current_timestamp,
-    #             label=1,
-    #             tracking_features=self.tracking_features,
-    #             bb_as_features=self.bb_as_features,
-    #             config=self.config
-    #         ).trajectory[self.current_timestamp].predicted_state).flatten()
-    #         for i in range(len(self.current_bbs))
-    #     ])
-    #     det_len, pred_len = all_detections.shape[0], all_predictions.shape[0]
-    #     dis = np.linalg.norm(all_detections[:, np.newaxis, :3] - all_predictions[:, :3], axis=2)
-    #     cost = dis * all_predictions[:, -1]
-    #     return cost, all_ids
-
     def compute_cost_map(self):
         """
         compute the cost map between detections and predictions
