@@ -30,7 +30,7 @@ class Tracker(Node):
     def __init__(self):
         super().__init__('tracker_node')
 
-        self.tracker_flag = self.declare_parameter('config', False).value
+        self.tracker_flag = self.declare_parameter('tracker_flag', False).value
 
         yaml_file = self.declare_parameter('config', 'centerpoint_mot.yaml').value
         self.config = cfg_from_yaml_file(yaml_file, cfg)
