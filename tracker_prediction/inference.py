@@ -209,7 +209,6 @@ class Tracker(Node):
                 dynamic_object.object = obj
                 dynamic_objects.objects.append(dynamic_object)
 
-
         if len(bbox_list) > 0 and self.tracker_flag:
             bbox_array = np.array(bbox_list)
             score_array = np.array(score_list)
@@ -223,6 +222,11 @@ class Tracker(Node):
                 #timestamp=msg_time.nanoseconds // 1e6
             )
             self.timestamp_for_tracker += 1
+            
+            #Очистка памяти каждые N шагов
+            # if self.timestamp_for_tracker % 1000 == 0:
+            #     self.tracker.dead_trajectories.clear()
+            #     self.tracker.active_trajectories.clear()
 
             tracks = self.tracker.post_processing(self.config)
 
@@ -247,7 +251,6 @@ class Tracker(Node):
                         frame_first_dict[frame_id] = {ob_id:(np.array(ob.updated_state.T), ob.score)}
 
             future_predictions = self.tracker.predict_future_trajectories(steps=15)
-
 
             #Convert numpy array to msg
             for i in range(len(tracked_bboxes)):
