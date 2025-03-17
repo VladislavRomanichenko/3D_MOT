@@ -4,16 +4,10 @@
 #include <Eigen/Dense>
 #include <map>
 #include <cmath>
+#include <config.hpp>
 
-struct Config {
-    double LiDAR_scanning_frequency;   
-    double state_func_covariance;      
-    double measure_func_covariance;    
-    double prediction_score_decay;     
-    double latency;                    
-};
-
-struct Object {
+struct Object 
+{
     Eigen::VectorXd updated_state;        
     Eigen::VectorXd predicted_state;      
     Eigen::VectorXd detected_state;       
@@ -26,7 +20,8 @@ struct Object {
     Object() : prediction_score(0.0), score(-1.0) {}
 };
 
-class Trajectory {
+class Trajectory 
+{
 public:
     Trajectory(const Eigen::VectorXd& init_bb,           
                const Eigen::VectorXd* init_features,     
@@ -48,7 +43,6 @@ public:
 
     void filtering(const Config& config);
 
-private:
     Eigen::VectorXd init_bb;              
     Eigen::VectorXd init_features;        
     double init_score;                    

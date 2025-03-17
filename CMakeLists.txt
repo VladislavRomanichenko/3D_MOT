@@ -12,7 +12,8 @@ find_package(Eigen3 REQUIRED)
 
 add_executable(tracker_node 
               src/inference.cpp 
-              src/trajectory.cpp)
+              src/trajectory.cpp
+              src/tracker.cpp)
 
 target_include_directories(tracker_node PUBLIC
                           $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
