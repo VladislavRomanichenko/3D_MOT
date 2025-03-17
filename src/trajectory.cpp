@@ -1,21 +1,17 @@
 #include <trajectory.hpp>
 #include <stdexcept>
+#include <iostream>
 
 Trajectory::Trajectory(const Eigen::VectorXd& init_bb,
-                       const Eigen::VectorXd* init_features,
                        double init_score,
                        int init_timestamp,
                        int label,
-                       bool tracking_features,
-                       bool bb_as_features,
                        const Config& config)
                        : 
                        init_bb(init_bb),
                        init_score(init_score),
                        init_timestamp(init_timestamp),
                        label(label),
-                       tracking_features(tracking_features),
-                       bb_as_features(bb_as_features),
                        config(config),
                        scanning_interval(1.0 / config.LiDAR_scanning_frequency),
                        consecutive_missed_num(0),
@@ -25,20 +21,6 @@ Trajectory::Trajectory(const Eigen::VectorXd& init_bb,
 {
     if (init_bb.size() < 7) {
         throw std::invalid_argument("init_bb must have at least 7 elements");
-    }
-
-    if (init_features) {
-        this->init_features = *init_features;
-    }
-
-    if (bb_as_features) {
-        if (this->init_features.size() == 0) {
-            this->init_features = init_bb;
-        } else {
-            Eigen::VectorXd temp(init_bb.size() + this->init_features.size());
-            temp << init_bb, this->init_features;
-            this->init_features = temp;
-        }
     }
 
     track_dim = compute_track_dim();
@@ -90,7 +72,6 @@ void Trajectory::state_prediction(int timestamp)
 
 
 void Trajectory::state_update(const Eigen::VectorXd& bb,
-                              const Eigen::VectorXd* features,
                               double score,
                               int timestamp) 
 {
@@ -102,30 +83,11 @@ void Trajectory::state_update(const Eigen::VectorXd& bb,
         throw std::runtime_error("Timestamp not found in trajectory");
     }
 
-    Eigen::VectorXd detected_features;
-    if (features) {
-        detected_features = *features;
-    }
-    if (bb_as_features) {
-        if (detected_features.size() == 0) {
-            detected_features = bb;
-        } else {
-            Eigen::VectorXd temp(bb.size() + detected_features.size());
-            temp << bb, detected_features;
-            detected_features = temp;
-        }
-    }
-
     Eigen::VectorXd detected_state = Eigen::VectorXd::Zero(track_dim - 6);
     detected_state.head(3) = bb.head(3);
     if (tracking_bb_size) {
         detected_state.segment(3, 4) = bb.segment(3, 4);
-        if (tracking_features && detected_features.size() > 0) {
-            detected_state.tail(detected_features.size()) = detected_features;
-        }
-    } else if (tracking_features && detected_features.size() > 0) {
-        detected_state.tail(detected_features.size()) = detected_features;
-    }
+    } 
 
     Object& curr_ob = it->second;
     Eigen::VectorXd pred_state = curr_ob.predicted_state;
@@ -147,7 +109,6 @@ void Trajectory::state_update(const Eigen::VectorXd& bb,
     curr_ob.updated_state = updated_state;
     curr_ob.updated_covariance = updated_cov;
     curr_ob.detected_state = detected_state;
-    curr_ob.features = detected_features;
 
     if (consecutive_missed_num > 1) {
         curr_ob.prediction_score = 1.0;
@@ -220,9 +181,6 @@ int Trajectory::compute_track_dim()
     if (tracking_bb_size) {
         dim += 4; // w, h, l, yaw
     }
-    if (tracking_features) {
-        dim += init_features.size();
-    }
     return dim;
 }
 
@@ -260,11 +218,6 @@ void Trajectory::init_trajectory()
     detected_state.head(3) = init_bb.head(3);
     if (tracking_bb_size) {
         detected_state.segment(3, 4) = init_bb.segment(3, 4);
-        if (tracking_features && init_features.size() > 0) {
-            detected_state.tail(init_features.size()) = init_features;
-        }
-    } else if (tracking_features && init_features.size() > 0) {
-        detected_state.tail(init_features.size()) = init_features;
     }
 
     Eigen::MatrixXd update_cov = Eigen::MatrixXd::Identity(track_dim, track_dim) * 0.01;
@@ -278,7 +231,6 @@ void Trajectory::init_trajectory()
     obj.predicted_covariance = update_cov;
     obj.prediction_score = 1.0;
     obj.score = init_score;
-    obj.features = init_features;
 
     trajectory[init_timestamp] = obj;
 }

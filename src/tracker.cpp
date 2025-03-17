@@ -2,10 +2,9 @@
 #include <algorithm>
 #include <cmath>
 
-Tracker3D::Tracker3D(bool tracking_features, bool bb_as_features, const std::string& box_type, const Config& config)
+Tracker3D::Tracker3D(const std::string& box_type, 
+                    const Config& config)
                     : 
-                    tracking_features_(tracking_features),
-                    bb_as_features_(bb_as_features),
                     box_type_(box_type),
                     config_(config),
                     current_timestamp_(0),
@@ -14,13 +13,11 @@ Tracker3D::Tracker3D(bool tracking_features, bool bb_as_features, const std::str
 
 std::pair<Eigen::MatrixXd, std::vector<int>> Tracker3D::tracking(
     const Eigen::MatrixXd& bbs_3D,
-    const Eigen::MatrixXd* features,
     const Eigen::VectorXd* scores,
     const Eigen::Matrix4d* pose,
     int timestamp) 
 {
     current_bbs_ = std::make_unique<Eigen::MatrixXd>(bbs_3D);
-    current_features_ = features ? std::make_unique<Eigen::MatrixXd>(*features) : nullptr;
     current_scores_ = scores ? std::make_unique<Eigen::VectorXd>(*scores) : nullptr;
     current_pose_ = pose ? std::make_unique<Eigen::Matrix4d>(*pose) : nullptr;
     current_timestamp_ = timestamp;
@@ -65,9 +62,9 @@ void Tracker3D::trajectories_prediction()
     }
 
     for (int id : dead_track_ids) {
-        dead_trajectories_[id] = std::move(active_trajectories_[id]);
+        dead_trajectories_.emplace(id, std::move(active_trajectories_.at(id)));
         active_trajectories_.erase(id);
-    }
+    }    
 }
 
 
@@ -111,10 +108,9 @@ std::pair<Eigen::MatrixXd, std::vector<int>> Tracker3D::compute_cost_map()
 
     for (int i = 0; i < current_bbs_->rows(); ++i) {
         Eigen::VectorXd box = current_bbs_->row(i);
-        const Eigen::VectorXd* features = current_features_ ? &current_features_->row(i) : nullptr;
         double score = current_scores_ ? (*current_scores_)[i] : 0.0;
 
-        Trajectory new_tra(box, features, score, current_timestamp_, 1, tracking_features_, bb_as_features_, config_);
+        Trajectory new_tra(box, score, current_timestamp_, 1, config_);
         Eigen::VectorXd state = new_tra.trajectory[current_timestamp_].predicted_state;
         all_detections.push_back(state);
     }
@@ -143,7 +139,7 @@ std::pair<Eigen::MatrixXd, std::vector<int>> Tracker3D::compute_cost_map()
 
     Eigen::VectorXd pred_scores(pred_len);
     for (int j = 0; j < pred_len; ++j) {
-        pred_scores(j) = all_predictions[j].tail(1)(0);  // Последний элемент — score
+        pred_scores(j) = all_predictions[j].tail(1)(0);
     }
 
     Eigen::MatrixXd cost = dis.array().colwise() * pred_scores.array();
@@ -185,29 +181,21 @@ std::vector<int> Tracker3D::association()
 std::pair<Eigen::MatrixXd, std::vector<int>> Tracker3D::trajectories_update_init(const std::vector<int>& ids) 
 {
     assert(ids.size() == current_bbs_->rows());
-
     std::vector<Eigen::VectorXd> valid_bbs;
     std::vector<int> valid_ids;
 
     for (int i = 0; i < current_bbs_->rows(); ++i) {
         int label = ids[i];
         Eigen::VectorXd box = current_bbs_->row(i);
-        const Eigen::VectorXd* features = current_features_ ? &current_features_->row(i) : nullptr;
         double score = current_scores_ ? (*current_scores_)[i] : 0.0;
 
-        if (active_trajectories_.count(label) && score > config_.update_score) 
-        {
-            Trajectory& track = active_trajectories_[label];
-            track.state_update(box, features, score, current_timestamp_);
+        auto it = active_trajectories_.find(label);
+        if (it != active_trajectories_.end() && score > config_.update_score) {
+            it->second.state_update(box, score, current_timestamp_);
             valid_bbs.push_back(box);
             valid_ids.push_back(label);
-        } 
-        else if (score > config_.init_score) 
-        {
-
-            Trajectory new_tra(box, features, score, current_timestamp_, label,tracking_features_, bb_as_features_, config_);
-            
-            active_trajectories_[label] = new_tra;
+        } else if (it == active_trajectories_.end() && score > config_.init_score) {
+            active_trajectories_.emplace(label, Trajectory(box, score, current_timestamp_, label, config_));
             valid_bbs.push_back(box);
             valid_ids.push_back(label);
         }
@@ -221,7 +209,6 @@ std::pair<Eigen::MatrixXd, std::vector<int>> Tracker3D::trajectories_update_init
     for (int i = 0; i < valid_bbs.size(); ++i) {
         bbs.row(i) = valid_bbs[i];
     }
-
     return {bbs, valid_ids};
 }
 
@@ -232,28 +219,28 @@ std::map<int, Trajectory> Tracker3D::post_processing(const Config& config)
 
     for (auto& [key, track] : dead_trajectories_) {
         track.filtering(config);
-        tra[key] = track;
+        tra.emplace(key, track);
     }
 
     for (auto& [key, track] : active_trajectories_) {
         track.filtering(config);
-        tra[key] = track;
+        tra.emplace(key, track);
     }
 
     return tra;
 }
 
 
-// Заглушки для функций box_op
+// Заглушки вместо box_op.py
 Eigen::MatrixXd Tracker3D::convert_bbs_type(const Eigen::MatrixXd& bbs, const std::string& box_type) 
 {
-    // TODO: чисто заглушка, надо её просто убрать из остального кода
+    // TODO: надо сделать здесь проверку типа и конвертацию его, например Waymo, Centerpoint и т.д.
     return bbs;
 }
 
 
 Eigen::MatrixXd Tracker3D::register_bbs(const Eigen::MatrixXd& bbs, const Eigen::Matrix4d* pose) 
 {
-    // TODO: чисто заглушка, надо её просто убрать из остального кода
+    // TODO: чисто заглушка, надо её просто убрать из остального кода, так как трафнсформации бокса берутся из utils
     return bbs;
 }

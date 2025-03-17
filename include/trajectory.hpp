@@ -15,21 +15,19 @@ struct Object
     Eigen::MatrixXd predicted_covariance; 
     double prediction_score;              
     double score;                         
-    Eigen::VectorXd features;             
 
     Object() : prediction_score(0.0), score(-1.0) {}
 };
+
+//TODO: переделать права доступа к полям
 
 class Trajectory 
 {
 public:
     Trajectory(const Eigen::VectorXd& init_bb,           
-               const Eigen::VectorXd* init_features,     
                double init_score,                        
                int init_timestamp,                       
                int label,                                
-               bool tracking_features = true,            
-               bool bb_as_features = false,              
                const Config& config = Config());        
 
     int size() const;
@@ -37,19 +35,15 @@ public:
     void state_prediction(int timestamp);
 
     void state_update(const Eigen::VectorXd& bb,         
-                      const Eigen::VectorXd* features,   
                       double score,                      
                       int timestamp);                    
 
     void filtering(const Config& config);
 
     Eigen::VectorXd init_bb;              
-    Eigen::VectorXd init_features;        
     double init_score;                    
     int init_timestamp;                   
     int label;                            
-    bool tracking_features;               
-    bool bb_as_features;                  
     bool tracking_bb_size;                
     Config config;                        
     double scanning_interval;             
