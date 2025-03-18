@@ -1,6 +1,7 @@
 #include <utils.hpp>
 
-Eigen::Matrix4d Rt_from_tq(const geometry_msgs::msg::Point &t, const geometry_msgs::msg::Quaternion &q) {
+Eigen::Matrix4d Rt_from_tq(const geometry_msgs::msg::Point &t, const geometry_msgs::msg::Quaternion &q) 
+{
     Eigen::Matrix4d Rt = Eigen::Matrix4d::Zero();
     Eigen::Quaterniond quat(q.w, q.x, q.y, q.z);
     Eigen::Matrix3d R = quat.toRotationMatrix();
@@ -13,12 +14,14 @@ Eigen::Matrix4d Rt_from_tq(const geometry_msgs::msg::Point &t, const geometry_ms
 }
 
 
-Matrix4 Rt_from_Pose(const geometry_msgs::msg::Pose &pose) {
+Matrix4 Rt_from_Pose(const geometry_msgs::msg::Pose &pose) 
+{
     return Rt_from_tq(pose.position, pose.orientation);
 }
 
 
-Eigen::Matrix4d Rt_from_Transform(const geometry_msgs::msg::TransformStamped &tf_stamped) {
+Eigen::Matrix4d Rt_from_Transform(const geometry_msgs::msg::TransformStamped &tf_stamped) 
+{
     const auto& tf = tf_stamped.transform;
     geometry_msgs::msg::Point t;
     t.x = tf.translation.x;
@@ -35,7 +38,8 @@ Eigen::Matrix4d Rt_from_Transform(const geometry_msgs::msg::TransformStamped &tf
 }
 
 
-geometry_msgs::msg::Pose Pose_from_Rt(const Matrix4 &Rt) {
+geometry_msgs::msg::Pose Pose_from_Rt(const Matrix4 &Rt) 
+{
     geometry_msgs::msg::Pose pose;
     Quaterniond quat(Rt.block<3, 3>(0, 0));
     pose.orientation.x = quat.x();
@@ -49,7 +53,8 @@ geometry_msgs::msg::Pose Pose_from_Rt(const Matrix4 &Rt) {
 }
 
 
-void transform_object(objects_msgs::msg::Object object, const geometry_msgs::msg::TransformStamped &tf) {
+void transform_object(objects_msgs::msg::Object object, const geometry_msgs::msg::TransformStamped &tf) 
+{
     Matrix4 Rt_tf = Rt_from_Transform(tf);
     Matrix4 Rt_pose = Rt_from_Pose(object.pose);
     
@@ -57,7 +62,19 @@ void transform_object(objects_msgs::msg::Object object, const geometry_msgs::msg
 }
 
 
-void set_object_yaw(objects_msgs::msg::Object object, double yaw) {
+void set_object_yaw(objects_msgs::msg::Object object, double yaw) 
+{
+    Quaterniond quat;
+    quat = Quaterniond(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()));
+
+    object.pose.orientation.x = quat.x();
+    object.pose.orientation.y = quat.y();
+    object.pose.orientation.z = quat.z();
+    object.pose.orientation.w = quat.w();
+}
+
+void set_object_yaw(geometry_msgs::msg::PoseStamped object, double yaw) 
+{
     Quaterniond quat;
     quat = Quaterniond(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()));
 
@@ -68,7 +85,8 @@ void set_object_yaw(objects_msgs::msg::Object object, double yaw) {
 }
 
 
-double get_object_yaw(objects_msgs::msg::Object object) {
+double get_object_yaw(objects_msgs::msg::Object object) 
+{
     
     Quaterniond quat(object.pose.orientation.w, 
                     object.pose.orientation.x, 

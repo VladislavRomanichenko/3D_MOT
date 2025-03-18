@@ -1,68 +1,179 @@
-#include <cstdio>
-#include<tracker.hpp>
-//#include <utils.hpp>
+#include "inference.hpp"
 
-#include <iostream>
+Tracker::Tracker()
+    : Node("tracker_node"),
+      buffer_(this->get_clock()),
+      listener_(buffer_, this),
+      timeout_(rclcpp::Duration(0, 0)),
+      timestamp_for_tracker_(0) 
+{    
+    RCLCPP_INFO(this->get_logger(), "Initializing Tracker");
+    
+    //Params
+    this->declare_parameter("tracker_flag", false);
+    this->declare_parameter("timeout", 0.01);
+    this->declare_parameter("target_frame", "local_map");
 
-int main(int argc, char ** argv)
+    tracker_flag_ = this->get_parameter("tracker_flag").as_bool();
+    timeout_ = rclcpp::Duration::from_seconds(this->get_parameter("timeout").as_double());
+    target_frame_ = this->get_parameter("target_frame").as_string();
+
+    //Config 
+    Config config_;
+    
+    config_.state_func_covariance = 1;
+    config_.measure_func_covariance = 0.01;
+    config_.prediction_score_decay = 0.02;
+    config_.LiDAR_scanning_frequency = 10;
+
+    config_.max_prediction_num = 12;
+    config_.max_prediction_num_for_new_object = 10;
+
+    config_.input_score = 0;
+    config_.init_score = 0;
+    config_.update_score = 0;
+    config_.post_score = 0.55;
+
+    config_.latency = 0;
+
+    tracker_ = Tracker3D("Centerpoint", config_);
+
+    //Publisher and Subscriber
+    subscriber_ = this->create_subscription<objects_msgs::msg::ObjectArray>(
+        "objects", 10, std::bind(&Tracker::tracker_callback, this, std::placeholders::_1));
+    publisher_ = this->create_publisher<objects_msgs::msg::DynamicObjectArray>("tracks", 10);
+
+    RCLCPP_INFO(this->get_logger(), "Initializing is OK");
+}
+
+
+Eigen::VectorXd Tracker::dynamic_msg_to_eigen_array(const objects_msgs::msg::Object& object) 
 {
-  (void) argc;
-  (void) argv;
+    Eigen::VectorXd bbox(7);
 
-  //Config 
-  Config config;
-  
-  config.state_func_covariance = 1;
-  config.measure_func_covariance = 0.01;
-  config.prediction_score_decay = 0.02;
-  config.LiDAR_scanning_frequency = 10;
+    bbox << object.pose.position.x, object.pose.position.y, object.pose.position.z, object.size.x, object.size.y, object.size.z, get_object_yaw(object);
+    
+    return bbox;
+}
 
-  config.max_prediction_num = 12;
-  config.max_prediction_num_for_new_object = 10;
+objects_msgs::msg::DynamicObject Tracker::eigen_array_to_dynamic_msg(const Eigen::VectorXd& array) 
+{
+    objects_msgs::msg::DynamicObject dynamic_object;
+    dynamic_object.object.pose.position.x = array(0);
+    dynamic_object.object.pose.position.y = array(1);
+    dynamic_object.object.pose.position.z = array(2);
+    dynamic_object.object.size.x = array(3);
+    dynamic_object.object.size.y = array(4);
+    dynamic_object.object.size.z = array(5);
+    set_object_yaw(dynamic_object.object, array(6));
+    return dynamic_object;
+}
 
-  config.input_score = 0;
-  config.init_score = 0;
-  config.update_score = 0;
-  config.post_score = 0.55;
 
-  config.latency = 0;
+void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr objects) 
+{
+    rclcpp::Time msg_time = objects->header.stamp;
 
-    Tracker3D tracker("default_box_type", config);
+    if (prev_time_ != rclcpp::Time() && prev_time_ > msg_time) {
+        buffer_.clear();
+        prev_time_ = msg_time;
+        return;
+    }
 
-    Eigen::MatrixXd init_bbs(1, 7);  
-    init_bbs << 1.0, 1.0, 1.0, 4.0, 5.0, 6.0, 0.0;
+    geometry_msgs::msg::TransformStamped tf;
+    try {
+        tf_error_.clear();
+        tf = buffer_.lookupTransform(target_frame_, objects->header.frame_id, objects->header.stamp, timeout_);
+    } catch (const tf2::TransformException& ex) {
+        tf_error_ = std::string("tf lookup error: ") + ex.what();
+        RCLCPP_WARN(this->get_logger(), "%s", tf_error_.c_str());
+        return;
+    }
 
-    Eigen::VectorXd init_scores(1);  
-    init_scores << 0.9;
+    objects_msgs::msg::DynamicObjectArray dynamic_objects;
+    dynamic_objects.header = objects->header;
+    dynamic_objects.header.frame_id = target_frame_;
 
-    std::cout << "Tracking at timestamp 0:\n";
-    auto [bbs_t0, ids_t0] = tracker.tracking(init_bbs, &init_scores, nullptr, 0);
-    std::cout << "Bounding boxes:\n" << bbs_t0 << "\n";
-    std::cout << "IDs: ";
-    for (int id : ids_t0) std::cout << id << " ";
-    std::cout << "\n\n";
+    std::vector<Eigen::VectorXd> bbox_list;
+    std::vector<double> score_list;
 
-    Eigen::MatrixXd new_bbs(1, 7);
-    new_bbs << 1.1, 2.1, 3.1, 4.0, 5.0, 6.0, 0.0;
+    for (auto obj : objects->objects) {
+        transform_object(obj, tf);
 
-    Eigen::VectorXd new_scores(1);
-    new_scores << 0.95;
-
-    std::cout << "Tracking at timestamp 1:\n";
-    auto [bbs_t1, ids_t1] = tracker.tracking(new_bbs, &new_scores, nullptr, 1);
-    std::cout << "Bounding boxes:\n" << bbs_t1 << "\n";
-    std::cout << "IDs: ";
-    for (int id : ids_t1) std::cout << id << " ";
-    std::cout << "\n\n";
-
-    std::cout << "Predicting future trajectories for 2 steps:\n";
-    auto future_trajs = tracker.predict_future_trajectories(2);
-    for (const auto& [id, states] : future_trajs) {
-        std::cout << "Trajectory ID " << id << ":\n";
-        for (const auto& state : states) {
-            std::cout << "  " << state.transpose() << "\n";
+        if (tracker_flag_) {
+            Eigen::VectorXd bbox = dynamic_msg_to_eigen_array(obj);
+            bbox_list.push_back(bbox);
+            score_list.push_back(obj.score);
+        } else {
+            objects_msgs::msg::DynamicObject dynamic_object;
+            dynamic_object.object = obj;
+            dynamic_objects.objects.push_back(dynamic_object);
         }
     }
 
+    if (!bbox_list.empty() && tracker_flag_) {
+        Eigen::MatrixXd bbox_array(bbox_list.size(), 7);
+        for (size_t i = 0; i < bbox_list.size(); ++i) {
+            bbox_array.row(i) = bbox_list[i];
+        }
+        Eigen::VectorXd score_array = Eigen::Map<Eigen::VectorXd>(score_list.data(), score_list.size());
+
+        auto [tracked_bboxes, track_ids] = tracker_.tracking(bbox_array, &score_array, nullptr, timestamp_for_tracker_);
+        timestamp_for_tracker_++;
+
+        auto tracks = tracker_.post_processing(config_);
+
+        std::map<int, std::map<int, std::pair<Eigen::VectorXd, double>>> frame_first_dict;
+        for (const auto& [ob_id, track] : tracks) {
+            for (const auto& [frame_id, ob] : track.trajectory) {
+                if (ob.updated_state.size() == 0 || ob.score < config_.post_score) {
+                    continue;
+                }
+                frame_first_dict[frame_id][ob_id] = {ob.updated_state.transpose(), ob.score};
+            }
+        }
+
+        auto future_predictions = tracker_.predict_future_trajectories(15);
+
+        for (int i = 0; i < tracked_bboxes.rows(); ++i) {
+            objects_msgs::msg::DynamicObject tracked_object = eigen_array_to_dynamic_msg(tracked_bboxes.row(i));
+            tracked_object.object.id = static_cast<int>(track_ids[i]);
+
+            if (future_predictions.count(track_ids[i])) {
+                for (const auto& preds : future_predictions[track_ids[i]]) {
+                    geometry_msgs::msg::PoseStamped preds_pose;
+                    preds_pose.header = objects->header;
+                    preds_pose.header.frame_id = target_frame_;
+                    if (preds.size() >= 13) {
+                        preds_pose.pose.position.x = preds(0);
+                        preds_pose.pose.position.y = preds(1);
+                        preds_pose.pose.position.z = preds(2);
+                        set_object_yaw(preds_pose, preds(12));
+                        tracked_object.prediction.push_back(preds_pose);
+                    } else {
+                        RCLCPP_WARN(this->get_logger(), "error");
+                    }
+                }
+            }
+
+            dynamic_objects.objects.push_back(tracked_object);
+        }
+    }
+
+    prev_time_ = msg_time;
+    publisher_->publish(dynamic_objects);
+}
+
+
+int main(int argc, char** argv) 
+{
+    rclcpp::init(argc, argv);
+    auto node = std::make_shared<Tracker>();
+    try {
+        rclcpp::spin(node);
+    } catch (const std::exception& e) {
+        RCLCPP_INFO(node->get_logger(), "Node shutdown");
+    }
+    rclcpp::shutdown();
     return 0;
 }

@@ -2,6 +2,7 @@
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <geometry_msgs/msg/point.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/pose.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
 #include <geometry_msgs/msg/transform.hpp>
@@ -14,10 +15,9 @@
 
 #include <cmath>
 //----------------CUSTOM MESSAGE----------------------------
-#include "objects_msgs/msg/object2_d.hpp"
-#include "objects_msgs/msg/object2_d_array.hpp"
 #include "objects_msgs/msg/object.hpp"
 #include "objects_msgs/msg/object_array.hpp"
+
 
 typedef Eigen::Matrix4d Matrix4;
 typedef Eigen::Quaterniond Quaterniond;
@@ -73,11 +73,12 @@ void transform_object(objects_msgs::msg::Object object, const geometry_msgs::msg
 /**
  * @brief Sets the yaw of an object.
  * 
- * @param object The object whose yaw is to be set as objects_msgs::msg::Object.
+ * @param object The object whose yaw is to be set as objects_msgs::msg::Object or geometry_msgs::msg::PoseStamped.
  * @param yaw The desired yaw angle.
  * @param camera_frame A flag indicating if the frame is that of a camera.
  */
 void set_object_yaw(objects_msgs::msg::Object object, double yaw);
+void set_object_yaw(geometry_msgs::msg::PoseStamped object, double yaw);
 
 
 /**
