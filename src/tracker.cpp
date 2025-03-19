@@ -141,8 +141,8 @@ std::pair<Eigen::MatrixXd, std::vector<int>> Tracker3D::compute_cost_map()
     for (int j = 0; j < pred_len; ++j) {
         pred_scores(j) = all_predictions[j].tail(1)(0);
     }
-
-    Eigen::MatrixXd cost = dis.array().colwise() * pred_scores.array();
+    assert(pred_scores.size() == dis.cols());
+    Eigen::MatrixXd cost = dis * pred_scores.asDiagonal();
 
     return {cost, all_ids};
 }

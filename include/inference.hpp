@@ -35,10 +35,11 @@ private:
     rclcpp::Subscription<objects_msgs::msg::ObjectArray>::SharedPtr subscriber_;
     rclcpp::Publisher<objects_msgs::msg::DynamicObjectArray>::SharedPtr publisher_;
 
-    rclcpp::Duration timeout_;
+    rclcpp::Duration timeout_{rclcpp::Duration::from_seconds(0.01)};
     std::string target_frame_;
-    tf2_ros::Buffer buffer_;
-    tf2_ros::TransformListener listener_;
+    
+    std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
     rclcpp::Time prev_time_;
     int timestamp_for_tracker_;

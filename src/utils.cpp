@@ -53,7 +53,7 @@ geometry_msgs::msg::Pose Pose_from_Rt(const Matrix4 &Rt)
 }
 
 
-void transform_object(objects_msgs::msg::Object object, const geometry_msgs::msg::TransformStamped &tf) 
+void transform_object(objects_msgs::msg::Object &object, const geometry_msgs::msg::TransformStamped &tf) 
 {
     Matrix4 Rt_tf = Rt_from_Transform(tf);
     Matrix4 Rt_pose = Rt_from_Pose(object.pose);
@@ -62,7 +62,7 @@ void transform_object(objects_msgs::msg::Object object, const geometry_msgs::msg
 }
 
 
-void set_object_yaw(objects_msgs::msg::Object object, double yaw) 
+void set_object_yaw(objects_msgs::msg::Object &object, double yaw) 
 {
     Quaterniond quat;
     quat = Quaterniond(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()));
@@ -73,7 +73,7 @@ void set_object_yaw(objects_msgs::msg::Object object, double yaw)
     object.pose.orientation.w = quat.w();
 }
 
-void set_object_yaw(geometry_msgs::msg::PoseStamped object, double yaw) 
+void set_object_yaw(geometry_msgs::msg::PoseStamped &object, double yaw) 
 {
     Quaterniond quat;
     quat = Quaterniond(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()));
@@ -85,13 +85,12 @@ void set_object_yaw(geometry_msgs::msg::PoseStamped object, double yaw)
 }
 
 
-double get_object_yaw(objects_msgs::msg::Object object) 
+double get_object_yaw(const objects_msgs::msg::Object &object) 
 {
-    
-    Quaterniond quat(object.pose.orientation.w, 
-                    object.pose.orientation.x, 
-                    object.pose.orientation.y, 
-                    object.pose.orientation.z);
-
-    return std::atan2(object.pose.orientation.z, object.pose.orientation.w);
+    double x = object.pose.orientation.x;
+    double y = object.pose.orientation.y;
+    double z = object.pose.orientation.z;
+    double w = object.pose.orientation.w;
+    double yaw = std::atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z));
+    return yaw;
 }

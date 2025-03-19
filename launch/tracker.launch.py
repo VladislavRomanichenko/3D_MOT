@@ -10,9 +10,8 @@ def generate_launch_description():
             namespace='centerpoint',
             parameters=[
                 {'target_frame': 'local_map'},
-                #{'config': '/home/vlad/workspace/waymo_tracker/tracker_prediction/config/online/centerpoint_mot.yaml'},
                 {'timeout': 0.01},
-                {'tracker_flag': False}
+                {'tracker_flag': True}
             ],
             remappings=[
                 ('objects', '/centerpoint/objects3d'),

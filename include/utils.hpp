@@ -67,7 +67,7 @@ geometry_msgs::msg::Pose Pose_from_Rt(const Matrix4 &Rt);
  * @param object The object to be transformed as objects_msgs::msg::Object.
  * @param tf The transformation to be applied as geometry_msgs::msg::TransformStamped.
  */
-void transform_object(objects_msgs::msg::Object object, const geometry_msgs::msg::TransformStamped &tf);
+void transform_object(objects_msgs::msg::Object &object, const geometry_msgs::msg::TransformStamped &tf);
 
 
 /**
@@ -77,8 +77,8 @@ void transform_object(objects_msgs::msg::Object object, const geometry_msgs::msg
  * @param yaw The desired yaw angle.
  * @param camera_frame A flag indicating if the frame is that of a camera.
  */
-void set_object_yaw(objects_msgs::msg::Object object, double yaw);
-void set_object_yaw(geometry_msgs::msg::PoseStamped object, double yaw);
+void set_object_yaw(objects_msgs::msg::Object &object, double yaw);
+void set_object_yaw(geometry_msgs::msg::PoseStamped &object, double yaw);
 
 
 /**
@@ -88,5 +88,5 @@ void set_object_yaw(geometry_msgs::msg::PoseStamped object, double yaw);
  * @param camera_frame A flag indicating if the frame is that of a camera.
  * @return double The computed yaw angle.
  */
-double get_object_yaw(objects_msgs::msg::Object object);
+double get_object_yaw(const objects_msgs::msg::Object &object);
 

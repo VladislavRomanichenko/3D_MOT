@@ -1,12 +1,10 @@
 #include "inference.hpp"
 
-Tracker::Tracker()
-    : Node("tracker_node"),
-      buffer_(this->get_clock()),
-      listener_(buffer_, this),
-      timeout_(rclcpp::Duration(0, 0)),
-      timestamp_for_tracker_(0) 
+Tracker::Tracker() : Node("tracker_node") 
 {    
+    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
     RCLCPP_INFO(this->get_logger(), "Initializing Tracker");
     
     //Params
@@ -17,8 +15,9 @@ Tracker::Tracker()
     tracker_flag_ = this->get_parameter("tracker_flag").as_bool();
     timeout_ = rclcpp::Duration::from_seconds(this->get_parameter("timeout").as_double());
     target_frame_ = this->get_parameter("target_frame").as_string();
+    timestamp_for_tracker_ = 0;
 
-    //Config 
+    //Config TODO: перенести все настройки в лаунч файл, чтоб удобно было эксперементировать  
     Config config_;
     
     config_.state_func_covariance = 1;
@@ -74,16 +73,17 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
 {
     rclcpp::Time msg_time = objects->header.stamp;
 
-    if (prev_time_ != rclcpp::Time() && prev_time_ > msg_time) {
-        buffer_.clear();
+    //TODO добавить диагностику по примеру
+    if (prev_time_.nanoseconds() != 0 && prev_time_ > msg_time) {
+        tf_buffer_->clear();
         prev_time_ = msg_time;
-        return;
+    return;
     }
 
     geometry_msgs::msg::TransformStamped tf;
     try {
         tf_error_.clear();
-        tf = buffer_.lookupTransform(target_frame_, objects->header.frame_id, objects->header.stamp, timeout_);
+        tf = tf_buffer_->lookupTransform(target_frame_, objects->header.frame_id, objects->header.stamp, timeout_);
     } catch (const tf2::TransformException& ex) {
         tf_error_ = std::string("tf lookup error: ") + ex.what();
         RCLCPP_WARN(this->get_logger(), "%s", tf_error_.c_str());
@@ -97,7 +97,7 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
     std::vector<Eigen::VectorXd> bbox_list;
     std::vector<double> score_list;
 
-    for (auto obj : objects->objects) {
+    for (auto& obj : objects->objects) {
         transform_object(obj, tf);
 
         if (tracker_flag_) {
