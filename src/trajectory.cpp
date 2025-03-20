@@ -7,7 +7,7 @@ Trajectory::Trajectory(const Eigen::VectorXd& init_bb,
                        int init_timestamp,
                        int label,
                        const Config& config)
-                       : 
+                       :
                        init_bb(init_bb),
                        init_score(init_score),
                        init_timestamp(init_timestamp),
@@ -17,7 +17,7 @@ Trajectory::Trajectory(const Eigen::VectorXd& init_bb,
                        consecutive_missed_num(0),
                        first_updated_timestamp(init_timestamp),
                        last_updated_timestamp(init_timestamp),
-                       tracking_bb_size(true) 
+                       tracking_bb_size(true)
 {
     if (init_bb.size() < 7) {
         throw std::invalid_argument("init_bb must have at least 7 elements");
@@ -29,19 +29,19 @@ Trajectory::Trajectory(const Eigen::VectorXd& init_bb,
 }
 
 
-double Trajectory::sigmoid(double x) 
+double Trajectory::sigmoid(double x)
 {
     return 1.0 / (1.0 + std::exp(-x));
 }
 
-int Trajectory::size() const 
+int Trajectory::size() const
 
 {
     return trajectory.size();
 }
 
 
-void Trajectory::state_prediction(int timestamp) 
+void Trajectory::state_prediction(int timestamp)
 {
     int previous_timestamp = timestamp - 1;
     auto it = trajectory.find(previous_timestamp);
@@ -73,7 +73,7 @@ void Trajectory::state_prediction(int timestamp)
 
 void Trajectory::state_update(const Eigen::VectorXd& bb,
                               double score,
-                              int timestamp) 
+                              int timestamp)
 {
     if (bb.size() < 7) {
         throw std::invalid_argument("bb must have at least 7 elements");
@@ -87,7 +87,7 @@ void Trajectory::state_update(const Eigen::VectorXd& bb,
     detected_state.head(3) = bb.head(3);
     if (tracking_bb_size) {
         detected_state.segment(3, 4) = bb.segment(3, 4);
-    } 
+    }
 
     Object& curr_ob = it->second;
     Eigen::VectorXd pred_state = curr_ob.predicted_state;
@@ -124,13 +124,14 @@ void Trajectory::state_update(const Eigen::VectorXd& bb,
 }
 
 
-void Trajectory::filtering(const Config& config) 
+void Trajectory::filtering(const Config& config)
 {
     int wind_size = static_cast<int>(config.LiDAR_scanning_frequency * config.latency);
 
     if (wind_size < 0) {
         double detected_num = 0.00001;
         double score_sum = 0.0;
+
         for (auto& pair : trajectory) {
             Object& ob = pair.second;
             if (ob.score >= 0) {
@@ -141,7 +142,9 @@ void Trajectory::filtering(const Config& config)
                 ob.updated_state = ob.predicted_state;
             }
         }
+
         double score = score_sum / detected_num;
+
         for (auto& pair : trajectory) {
             pair.second.score = score;
         }
@@ -166,7 +169,9 @@ void Trajectory::filtering(const Config& config)
                     }
                 }
             }
+
             double score = score_sum / detected_num;
+
             if (wind_size != 0) {
                 it->second.score = score;
             }
@@ -175,7 +180,7 @@ void Trajectory::filtering(const Config& config)
 }
 
 
-int Trajectory::compute_track_dim() 
+int Trajectory::compute_track_dim()
 {
     int dim = 9; // x, y, z, vx, vy, vz, ax, ay, az
     if (tracking_bb_size) {
@@ -185,7 +190,7 @@ int Trajectory::compute_track_dim()
 }
 
 
-void Trajectory::init_parameters() 
+void Trajectory::init_parameters()
 {
     A = Eigen::MatrixXd::Identity(track_dim, track_dim);
     Q = Eigen::MatrixXd::Identity(track_dim, track_dim) * config.state_func_covariance;
@@ -212,7 +217,7 @@ void Trajectory::init_parameters()
 }
 
 
-void Trajectory::init_trajectory() 
+void Trajectory::init_trajectory()
 {
     Eigen::VectorXd detected_state = Eigen::VectorXd::Zero(track_dim - 6);
     detected_state.head(3) = init_bb.head(3);

@@ -2,9 +2,9 @@
 #include <algorithm>
 #include <cmath>
 
-Tracker3D::Tracker3D(const std::string& box_type, 
+Tracker3D::Tracker3D(const std::string& box_type,
                     const Config& config)
-                    : 
+                    :
                     box_type_(box_type),
                     config_(config),
                     current_timestamp_(0),
@@ -15,7 +15,7 @@ std::pair<Eigen::MatrixXd, std::vector<int>> Tracker3D::tracking(
     const Eigen::MatrixXd& bbs_3D,
     const Eigen::VectorXd* scores,
     const Eigen::Matrix4d* pose,
-    int timestamp) 
+    int timestamp)
 {
     current_bbs_ = std::make_unique<Eigen::MatrixXd>(bbs_3D);
     current_scores_ = scores ? std::make_unique<Eigen::VectorXd>(*scores) : nullptr;
@@ -28,9 +28,6 @@ std::pair<Eigen::MatrixXd, std::vector<int>> Tracker3D::tracking(
         return {Eigen::MatrixXd::Zero(0, 7), std::vector<int>()};
     }
 
-    *current_bbs_ = convert_bbs_type(*current_bbs_, box_type_);
-    *current_bbs_ = register_bbs(*current_bbs_, current_pose_.get());
-
     std::vector<int> ids = association();
     auto [bbs, valid_ids] = trajectories_update_init(ids);
 
@@ -38,7 +35,7 @@ std::pair<Eigen::MatrixXd, std::vector<int>> Tracker3D::tracking(
 }
 
 
-void Tracker3D::trajectories_prediction() 
+void Tracker3D::trajectories_prediction()
 {
     if (active_trajectories_.empty()) {
         return;
@@ -64,18 +61,18 @@ void Tracker3D::trajectories_prediction()
     for (int id : dead_track_ids) {
         dead_trajectories_.emplace(id, std::move(active_trajectories_.at(id)));
         active_trajectories_.erase(id);
-    }    
+    }
 }
 
 
-std::map<int, std::vector<Eigen::VectorXd>> Tracker3D::predict_future_trajectories(int steps) 
+std::map<int, std::vector<Eigen::VectorXd>> Tracker3D::predict_future_trajectories(int steps)
 {
     std::map<int, std::vector<Eigen::VectorXd>> future_predictions;
     int last_timestamp = current_timestamp_;
 
     for (auto& [track_id, trajectory] : active_trajectories_) {
         std::vector<Eigen::VectorXd> future_states;
-        Trajectory temp_trajectory = trajectory; 
+        Trajectory temp_trajectory = trajectory;
 
         for (int step = 1; step <= steps; ++step) {
             int next_timestamp = last_timestamp + step;
@@ -91,7 +88,7 @@ std::map<int, std::vector<Eigen::VectorXd>> Tracker3D::predict_future_trajectori
 }
 
 
-std::pair<Eigen::MatrixXd, std::vector<int>> Tracker3D::compute_cost_map() 
+std::pair<Eigen::MatrixXd, std::vector<int>> Tracker3D::compute_cost_map()
 {
     std::vector<int> all_ids;
     std::vector<Eigen::VectorXd> all_predictions;
@@ -148,7 +145,7 @@ std::pair<Eigen::MatrixXd, std::vector<int>> Tracker3D::compute_cost_map()
 }
 
 
-std::vector<int> Tracker3D::association() 
+std::vector<int> Tracker3D::association()
 {
     if (active_trajectories_.empty()) {
         std::vector<int> ids(current_bbs_->rows());
@@ -178,7 +175,7 @@ std::vector<int> Tracker3D::association()
 }
 
 
-std::pair<Eigen::MatrixXd, std::vector<int>> Tracker3D::trajectories_update_init(const std::vector<int>& ids) 
+std::pair<Eigen::MatrixXd, std::vector<int>> Tracker3D::trajectories_update_init(const std::vector<int>& ids)
 {
     assert(ids.size() == current_bbs_->rows());
     std::vector<Eigen::VectorXd> valid_bbs;
@@ -213,7 +210,7 @@ std::pair<Eigen::MatrixXd, std::vector<int>> Tracker3D::trajectories_update_init
 }
 
 
-std::map<int, Trajectory> Tracker3D::post_processing(const Config& config) 
+std::map<int, Trajectory> Tracker3D::post_processing(const Config& config)
 {
     std::map<int, Trajectory> tra;
 
@@ -228,19 +225,4 @@ std::map<int, Trajectory> Tracker3D::post_processing(const Config& config)
     }
 
     return tra;
-}
-
-
-// Заглушки вместо box_op.py
-Eigen::MatrixXd Tracker3D::convert_bbs_type(const Eigen::MatrixXd& bbs, const std::string& box_type) 
-{
-    // TODO: надо сделать здесь проверку типа и конвертацию его, например Waymo, Centerpoint и т.д.
-    return bbs;
-}
-
-
-Eigen::MatrixXd Tracker3D::register_bbs(const Eigen::MatrixXd& bbs, const Eigen::Matrix4d* pose) 
-{
-    // TODO: чисто заглушка, надо её просто убрать из остального кода, так как трафнсформации бокса берутся из utils
-    return bbs;
 }

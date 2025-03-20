@@ -40,6 +40,4 @@ private:
     std::vector<int> association();
     std::pair<Eigen::MatrixXd, std::vector<int>> trajectories_update_init(const std::vector<int>& ids);
 
-    Eigen::MatrixXd convert_bbs_type(const Eigen::MatrixXd& bbs, const std::string& box_type);
-    Eigen::MatrixXd register_bbs(const Eigen::MatrixXd& bbs, const Eigen::Matrix4d* pose);
 };

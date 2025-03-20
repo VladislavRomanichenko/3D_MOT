@@ -9,8 +9,8 @@
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 
-#include "tracker.hpp"  // Assumes Tracker3D is defined here
-#include "utils.hpp"   // Assumes transform_object is defined here
+#include "tracker.hpp"
+#include "utils.hpp"
 
 //----------------CUSTOM MESSAGE-----------------------
 #include "objects_msgs/msg/object.hpp"
@@ -37,11 +37,12 @@ private:
 
     rclcpp::Duration timeout_{rclcpp::Duration::from_seconds(0.01)};
     std::string target_frame_;
-    
+
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
     rclcpp::Time prev_time_;
+    int num_future_states_;
     int timestamp_for_tracker_;
     std::string tf_error_;
 };
