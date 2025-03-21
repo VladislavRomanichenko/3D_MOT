@@ -68,8 +68,10 @@ Eigen::VectorXd Tracker::dynamic_msg_to_eigen_array(const objects_msgs::msg::Obj
     return bbox;
 }
 
-void Tracker::eigen_array_to_dynamic_msg(objects_msgs::msg::DynamicObject& dynamic_object, const Eigen::VectorXd& array)
+objects_msgs::msg::DynamicObject Tracker::eigen_array_to_dynamic_msg(const Eigen::VectorXd& array)
 {
+    objects_msgs::msg::DynamicObject dynamic_object;
+
     dynamic_object.object.pose.position.x = array(0);
     dynamic_object.object.pose.position.y = array(1);
     dynamic_object.object.pose.position.z = array(2);
@@ -79,7 +81,7 @@ void Tracker::eigen_array_to_dynamic_msg(objects_msgs::msg::DynamicObject& dynam
     dynamic_object.object.size.z = array(5);
 
     set_object_yaw(dynamic_object.object, array(6));
-
+    return dynamic_object;
 }
 
 
@@ -108,10 +110,11 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
     dynamic_objects.header = objects->header;
     dynamic_objects.header.frame_id = target_frame_;
 
-    objects_msgs::msg::DynamicObject tracked_object;
-
     std::vector<Eigen::VectorXd> bbox_list;
     std::vector<double> score_list;
+
+    int label = 0;
+    double score = 0;
 
     for (auto& obj : objects->objects) {
         transform_object(obj, tf);
@@ -119,8 +122,8 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
         if (tracker_flag_) {
             Eigen::VectorXd bbox = dynamic_msg_to_eigen_array(obj);
 
-            tracked_object.object.score = obj.score;
-            tracked_object.object.label = obj.label;
+            label = obj.label;
+            score = obj.score;
 
             bbox_list.push_back(bbox);
             score_list.push_back(obj.score);
@@ -159,7 +162,7 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
         auto future_predictions = tracker_.predict_future_trajectories(num_future_states_);
 
         for (int i = 0; i < tracked_bboxes.rows(); ++i) {
-            eigen_array_to_dynamic_msg(tracked_object, tracked_bboxes.row(i));
+            objects_msgs::msg::DynamicObject tracked_object = eigen_array_to_dynamic_msg(tracked_bboxes.row(i));
 
             tracked_object.object.id = static_cast<int>(track_ids[i]);
 
@@ -181,6 +184,8 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
                 }
             }
 
+            tracked_object.object.label = label;
+            tracked_object.object.score = score;
             dynamic_objects.objects.push_back(tracked_object);
         }
     }
