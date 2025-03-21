@@ -26,7 +26,7 @@ public:
 private:
     void tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr objects);
     Eigen::VectorXd dynamic_msg_to_eigen_array(const objects_msgs::msg::Object& object);
-    objects_msgs::msg::DynamicObject eigen_array_to_dynamic_msg(const Eigen::VectorXd& array);
+    void eigen_array_to_dynamic_msg(objects_msgs::msg::DynamicObject& dynamic_object, const Eigen::VectorXd& array);
 
     Config config_;
     bool tracker_flag_;
