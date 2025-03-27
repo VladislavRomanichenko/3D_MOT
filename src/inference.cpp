@@ -111,10 +111,8 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
     dynamic_objects.header.frame_id = target_frame_;
 
     std::vector<Eigen::VectorXd> bbox_list;
-    std::vector<double> score_list;
-
-    int label = 0;
-    double score = 0;
+    std::vector<double> score_arr;
+    std::vector<int> label_arr;
 
     for (auto& obj : objects->objects) {
         transform_object(obj, tf);
@@ -122,11 +120,10 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
         if (tracker_flag_) {
             Eigen::VectorXd bbox = dynamic_msg_to_eigen_array(obj);
 
-            label = obj.label;
-            score = obj.score;
-
             bbox_list.push_back(bbox);
-            score_list.push_back(obj.score);
+
+            score_arr.push_back(obj.score);
+            label_arr.push_back(obj.label);
         } else {
             objects_msgs::msg::DynamicObject dynamic_object;
             dynamic_object.object = obj;
@@ -141,7 +138,7 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
             bbox_array.row(i) = bbox_list[i];
         }
 
-        Eigen::VectorXd score_array = Eigen::Map<Eigen::VectorXd>(score_list.data(), score_list.size());
+        Eigen::VectorXd score_array = Eigen::Map<Eigen::VectorXd>(score_arr.data(), score_arr.size());
 
         auto [tracked_bboxes, track_ids] = tracker_.tracking(bbox_array, &score_array, nullptr, timestamp_for_tracker_);
         timestamp_for_tracker_++;
@@ -164,6 +161,9 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
         for (int i = 0; i < tracked_bboxes.rows(); ++i) {
             objects_msgs::msg::DynamicObject tracked_object = eigen_array_to_dynamic_msg(tracked_bboxes.row(i));
 
+            tracked_object.object.label = label_arr[i];
+            tracked_object.object.score = score_arr[i];
+
             tracked_object.object.id = static_cast<int>(track_ids[i]);
 
             if (future_predictions.count(track_ids[i])) {
@@ -184,8 +184,7 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
                 }
             }
 
-            tracked_object.object.label = label;
-            tracked_object.object.score = score;
+
             dynamic_objects.objects.push_back(tracked_object);
         }
     }
