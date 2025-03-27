@@ -1,7 +1,9 @@
 #include "inference.hpp"
 
-Tracker::Tracker() : Node("tracker_node")
-{
+Tracker::Tracker() : Node("tracker_node"), diag_updater(this) {
+    diag_updater.setHardwareID("none");
+    diag_updater.setPeriod(1.0);
+
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 

@@ -13,11 +13,13 @@ find_package(Eigen3 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2 REQUIRED)
 
+find_package(diagnostic_updater REQUIRED)
+
 find_package(geometry_msgs REQUIRED)
 find_package(objects_msgs REQUIRED)
 
-add_executable(tracker_node 
-              src/inference.cpp 
+add_executable(tracker_node
+              src/inference.cpp
               src/trajectory.cpp
               src/tracker.cpp
               src/utils.cpp)

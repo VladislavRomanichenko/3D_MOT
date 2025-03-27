@@ -9,6 +9,9 @@
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 
+#include <diagnostic_updater/diagnostic_updater.hpp>
+#include <diagnostic_updater/publisher.hpp>
+
 #include "tracker.hpp"
 #include "utils.hpp"
 
@@ -24,6 +27,28 @@ public:
     Tracker();
 
 private:
+    diagnostic_updater::Updater diag_updater;
+    std::unique_ptr<diagnostic_updater::TopicDiagnostic> diag_input_odometry;
+    std::unique_ptr<diagnostic_updater::TopicDiagnostic> diag_input_main;
+    std::unique_ptr<diagnostic_updater::TopicDiagnostic> diag_input_secondary;
+    std::unique_ptr<diagnostic_updater::TopicDiagnostic> diag_input_tiles;
+    std::unique_ptr<diagnostic_updater::TopicDiagnostic> diag_output;
+    double diag_input_odometry_min_freq = 0;
+    double diag_input_odometry_max_freq = 0;
+    double diag_input_main_min_freq = 0;
+    double diag_input_main_max_freq = 0;
+    double diag_input_secondary_min_freq = 0;
+    double diag_input_secondary_max_freq = 0;
+    double diag_input_tiles_min_freq = 0;
+    double diag_input_tiles_max_freq = 0;
+    double diag_output_min_freq = 0;
+    double diag_output_max_freq = 0;
+    int diag_lvl = diagnostic_msgs::msg::DiagnosticStatus::OK;
+    std::string diag_msg = "OK";
+
+    void update_diagnostic_status(diagnostic_updater::DiagnosticStatusWrapper& stat);
+
+
     void tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr objects);
     Eigen::VectorXd dynamic_msg_to_eigen_array(const objects_msgs::msg::Object& object);
     objects_msgs::msg::DynamicObject eigen_array_to_dynamic_msg(const Eigen::VectorXd& array);
