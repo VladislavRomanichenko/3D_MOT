@@ -27,6 +27,7 @@ Tracker::Tracker() : Node("tracker_node"), diag_updater(this) {
     this->declare_parameter("post_score", 0.55);
     this->declare_parameter("latency", 0.0);
 
+    //Declare params for prediction states
     this->declare_parameter("num_future_states", 15);
 
     tracker_flag_ = this->get_parameter("tracker_flag").as_bool();
@@ -51,6 +52,29 @@ Tracker::Tracker() : Node("tracker_node"), diag_updater(this) {
     timestamp_for_tracker_ = 0;
     tracker_ = Tracker3D("Centerpoint", config_);
 
+    //Diagnostic
+    double input_freq = declare_parameter("input_main_freq", 10.0);
+    double output_freq = declare_parameter("output_freq", 10.0);
+    double diag_min_time = declare_parameter("diag_min_time", 0.0);
+    double diag_max_time = declare_parameter("diag_max_time", 0.3);
+
+    diag_updater.add("Status", this,
+                     &Tracker::update_diagnostic_status);
+
+    diag_input_min_freq = input_freq;
+    diag_input_max_freq = input_freq;
+    diag_input_main = std::make_unique<diagnostic_updater::TopicDiagnostic>(
+        "Input", diag_updater,
+        diagnostic_updater::FrequencyStatusParam(&diag_input_min_freq, &diag_input_max_freq, 0.1, 10),
+        diagnostic_updater::TimeStampStatusParam(diag_min_time, diag_max_time), this->get_clock());
+
+    diag_output_min_freq = output_freq;
+    diag_output_max_freq = output_freq;
+    diag_output = std::make_unique<diagnostic_updater::TopicDiagnostic>(
+        "Output", diag_updater,
+        diagnostic_updater::FrequencyStatusParam(&diag_output_min_freq, &diag_output_max_freq, 0.1, 10),
+        diagnostic_updater::TimeStampStatusParam(diag_min_time, diag_max_time), this->get_clock());
+
     //Subscriber
     subscriber_ = this->create_subscription<objects_msgs::msg::ObjectArray>("objects", 10, std::bind(&Tracker::tracker_callback, this, std::placeholders::_1));
 
@@ -58,6 +82,13 @@ Tracker::Tracker() : Node("tracker_node"), diag_updater(this) {
     publisher_ = this->create_publisher<objects_msgs::msg::DynamicObjectArray>("tracks", 10);
 
     RCLCPP_INFO(this->get_logger(), "Initializing is OK");
+}
+
+
+void Tracker::update_diagnostic_status(diagnostic_updater::DiagnosticStatusWrapper& stat) {
+    stat.summary(diag_lvl, diag_msg);
+    diag_lvl = diagnostic_msgs::msg::DiagnosticStatus::OK;
+    diag_msg = "OK";
 }
 
 
@@ -69,6 +100,7 @@ Eigen::VectorXd Tracker::dynamic_msg_to_eigen_array(const objects_msgs::msg::Obj
 
     return bbox;
 }
+
 
 objects_msgs::msg::DynamicObject Tracker::eigen_array_to_dynamic_msg(const Eigen::VectorXd& array)
 {
@@ -91,20 +123,23 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
 {
     rclcpp::Time msg_time = objects->header.stamp;
 
-    //TODO добавить диагностику по примеру
+    diag_input_main->tick(objects->header.stamp);
+
+    //TODO diag update
     if (prev_time_.nanoseconds() != 0 && prev_time_ > msg_time) {
         tf_buffer_->clear();
         prev_time_ = msg_time;
     return;
     }
 
+    //TODO diag update
     geometry_msgs::msg::TransformStamped tf;
     try {
-        tf_error_.clear();
+        diag_msg.clear();
         tf = tf_buffer_->lookupTransform(target_frame_, objects->header.frame_id, objects->header.stamp, timeout_);
     } catch (const tf2::TransformException& ex) {
-        tf_error_ = std::string("tf lookup error: ") + ex.what();
-        RCLCPP_WARN(this->get_logger(), "%s", tf_error_.c_str());
+        diag_msg = std::string("tf lookup error: ") + ex.what();
+        RCLCPP_WARN(this->get_logger(), "%s", diag_msg.c_str());
         return;
     }
 
@@ -188,6 +223,7 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
 
 
             dynamic_objects.objects.push_back(tracked_object);
+            diag_output->tick(objects->header.stamp);
         }
     }
 

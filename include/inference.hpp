@@ -28,19 +28,10 @@ public:
 
 private:
     diagnostic_updater::Updater diag_updater;
-    std::unique_ptr<diagnostic_updater::TopicDiagnostic> diag_input_odometry;
     std::unique_ptr<diagnostic_updater::TopicDiagnostic> diag_input_main;
-    std::unique_ptr<diagnostic_updater::TopicDiagnostic> diag_input_secondary;
-    std::unique_ptr<diagnostic_updater::TopicDiagnostic> diag_input_tiles;
     std::unique_ptr<diagnostic_updater::TopicDiagnostic> diag_output;
-    double diag_input_odometry_min_freq = 0;
-    double diag_input_odometry_max_freq = 0;
-    double diag_input_main_min_freq = 0;
-    double diag_input_main_max_freq = 0;
-    double diag_input_secondary_min_freq = 0;
-    double diag_input_secondary_max_freq = 0;
-    double diag_input_tiles_min_freq = 0;
-    double diag_input_tiles_max_freq = 0;
+    double diag_input_min_freq = 0;
+    double diag_input_max_freq = 0;
     double diag_output_min_freq = 0;
     double diag_output_max_freq = 0;
     int diag_lvl = diagnostic_msgs::msg::DiagnosticStatus::OK;
@@ -69,5 +60,4 @@ private:
     rclcpp::Time prev_time_;
     int num_future_states_;
     int timestamp_for_tracker_;
-    std::string tf_error_;
 };

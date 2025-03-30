@@ -15,22 +15,22 @@ def generate_launch_description():
                 {'tracker_flag': True},
 
                 # KF parameters
-                {'state_func_covariance': 1.0},
-                {'measure_func_covariance': 0.01},
-                {'prediction_score_decay': 0.02},
+                {'state_func_covariance': 100.0},
+                {'measure_func_covariance': 0.001},
+                {'prediction_score_decay': 0.01},
                 {'LiDAR_scanning_frequency': 10.0},
 
                 # Trajectory prediction
-                {'num_future_states': 15},
+                {'num_future_states': 10},
 
                 # Max prediction number of state function
-                {'max_prediction_num': 12},
-                {'max_prediction_num_for_new_object': 10},
+                {'max_prediction_num': 20},
+                {'max_prediction_num_for_new_object': 8},
 
                 # Detection score threshold
                 {'input_score': 0.0},
-                {'init_score': 0.0},
-                {'update_score': 0.0},
+                {'init_score': 0.15},
+                {'update_score': -0.3},
                 {'post_score': 0.55},
 
                 # Tracking latency (s)
