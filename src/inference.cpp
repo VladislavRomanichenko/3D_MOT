@@ -58,12 +58,11 @@ Tracker::Tracker() : Node("tracker_node"), diag_updater(this) {
     double diag_min_time = declare_parameter("diag_min_time", 0.0);
     double diag_max_time = declare_parameter("diag_max_time", 0.3);
 
-    diag_updater.add("Status", this,
-                     &Tracker::update_diagnostic_status);
+    diag_updater.add("Status", this, &Tracker::update_diagnostic_status);
 
     diag_input_min_freq = input_freq;
     diag_input_max_freq = input_freq;
-    diag_input_main = std::make_unique<diagnostic_updater::TopicDiagnostic>(
+    diag_input = std::make_unique<diagnostic_updater::TopicDiagnostic>(
         "Input", diag_updater,
         diagnostic_updater::FrequencyStatusParam(&diag_input_min_freq, &diag_input_max_freq, 0.1, 10),
         diagnostic_updater::TimeStampStatusParam(diag_min_time, diag_max_time), this->get_clock());
@@ -123,23 +122,24 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
 {
     rclcpp::Time msg_time = objects->header.stamp;
 
-    diag_input_main->tick(objects->header.stamp);
+    diag_input->tick(objects->header.stamp);
 
-    //TODO diag update
     if (prev_time_.nanoseconds() != 0 && prev_time_ > msg_time) {
+        diag_updater.broadcast(diagnostic_msgs::msg::DiagnosticStatus::WARN, "Detect jump in time: reset tf buffer");
         tf_buffer_->clear();
         prev_time_ = msg_time;
-    return;
+        return;
     }
 
-    //TODO diag update
     geometry_msgs::msg::TransformStamped tf;
     try {
-        diag_msg.clear();
         tf = tf_buffer_->lookupTransform(target_frame_, objects->header.frame_id, objects->header.stamp, timeout_);
     } catch (const tf2::TransformException& ex) {
-        diag_msg = std::string("tf lookup error: ") + ex.what();
-        RCLCPP_WARN(this->get_logger(), "%s", diag_msg.c_str());
+        RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
+                            "tf lookup error: %s", ex.what());
+        diag_lvl = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
+        diag_msg = std::string("Can't get robot coordinates");
+        diag_updater.force_update();
         return;
     }
 

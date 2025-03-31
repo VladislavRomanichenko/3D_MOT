@@ -28,7 +28,7 @@ public:
 
 private:
     diagnostic_updater::Updater diag_updater;
-    std::unique_ptr<diagnostic_updater::TopicDiagnostic> diag_input_main;
+    std::unique_ptr<diagnostic_updater::TopicDiagnostic> diag_input;
     std::unique_ptr<diagnostic_updater::TopicDiagnostic> diag_output;
     double diag_input_min_freq = 0;
     double diag_input_max_freq = 0;
