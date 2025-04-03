@@ -34,7 +34,6 @@ private:
     std::string box_type_;
     int label_seed_;
     std::map<int, Trajectory> active_trajectories_;
-    std::map<int, Trajectory> dead_trajectories_;
 
     std::pair<Eigen::MatrixXd, std::vector<int>> compute_cost_map();
     std::vector<int> association();

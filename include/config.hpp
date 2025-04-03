@@ -8,6 +8,7 @@ struct Config
     // max prediction number of state function
     int max_prediction_num;                     
     int max_prediction_num_for_new_object;      
+    double association_threshold;
 
     //detection score threshold
     double input_score;

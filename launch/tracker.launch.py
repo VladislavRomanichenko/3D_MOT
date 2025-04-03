@@ -15,7 +15,7 @@ def generate_launch_description():
                 {'tracker_flag': True},
 
                 # KF parameters
-                {'state_func_covariance': 100.0},
+                {'state_func_covariance': 50.0},
                 {'measure_func_covariance': 0.001},
                 {'prediction_score_decay': 0.01},
                 {'LiDAR_scanning_frequency': 10.0},
@@ -26,6 +26,7 @@ def generate_launch_description():
                 # Max prediction number of state function
                 {'max_prediction_num': 20},
                 {'max_prediction_num_for_new_object': 8},
+                {'association_threshold': 1.5},
 
                 # Detection score threshold
                 {'input_score': 0.0},

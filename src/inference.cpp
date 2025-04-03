@@ -10,49 +10,33 @@ Tracker::Tracker() : Node("tracker_node"), diag_updater(this) {
     RCLCPP_INFO(this->get_logger(), "Initializing Tracker");
 
     //Params
-    this->declare_parameter("tracker_flag", false);
-    this->declare_parameter("timeout", 0.01);
-    this->declare_parameter("target_frame", "local_map");
-
+    tracker_flag_ = this->declare_parameter("tracker_flag", false);
+    timeout_ = rclcpp::Duration::from_seconds(this->declare_parameter("timeout", 0.01));
+    target_frame_ = this->declare_parameter("target_frame", "local_map");
+    
     //Declare params for config
-    this->declare_parameter("state_func_covariance", 1.0);
-    this->declare_parameter("measure_func_covariance", 0.01);
-    this->declare_parameter("prediction_score_decay", 0.02);
-    this->declare_parameter("LiDAR_scanning_frequency", 10.0);
-    this->declare_parameter("max_prediction_num", 12);
-    this->declare_parameter("max_prediction_num_for_new_object", 10);
-    this->declare_parameter("input_score", 0.0);
-    this->declare_parameter("init_score", 0.0);
-    this->declare_parameter("update_score", 0.0);
-    this->declare_parameter("post_score", 0.55);
-    this->declare_parameter("latency", 0.0);
+    Config config_;
+
+    config_.state_func_covariance = this->declare_parameter("state_func_covariance", 1.0);
+    config_.measure_func_covariance = this->declare_parameter("measure_func_covariance", 0.01);
+    config_.prediction_score_decay = this->declare_parameter("prediction_score_decay", 0.02);
+    config_.LiDAR_scanning_frequency = this->declare_parameter("LiDAR_scanning_frequency", 10.0);
+    config_.max_prediction_num = this->declare_parameter("max_prediction_num", 12);
+    config_.max_prediction_num_for_new_object = this->declare_parameter("max_prediction_num_for_new_object", 10);
+    config_.association_threshold = this->declare_parameter("association_threshold", 2.0);
+    config_.input_score = this->declare_parameter("input_score", 0.0);
+    config_.init_score = this->declare_parameter("init_score", 0.0);
+    config_.update_score = this->declare_parameter("update_score", 0.0);
+    config_.post_score = this->declare_parameter("post_score", 0.55);
+    config_.latency = this->declare_parameter("latency", 0.0);
 
     //Declare params for prediction states
-    this->declare_parameter("num_future_states", 15);
-
-    tracker_flag_ = this->get_parameter("tracker_flag").as_bool();
-    timeout_ = rclcpp::Duration::from_seconds(this->get_parameter("timeout").as_double());
-    target_frame_ = this->get_parameter("target_frame").as_string();
-
-    Config config_;
-    config_.state_func_covariance = this->get_parameter("state_func_covariance").as_double();
-    config_.measure_func_covariance = this->get_parameter("measure_func_covariance").as_double();
-    config_.prediction_score_decay = this->get_parameter("prediction_score_decay").as_double();
-    config_.LiDAR_scanning_frequency = this->get_parameter("LiDAR_scanning_frequency").as_double();
-    config_.max_prediction_num = this->get_parameter("max_prediction_num").as_int();
-    config_.max_prediction_num_for_new_object = this->get_parameter("max_prediction_num_for_new_object").as_int();
-    config_.input_score = this->get_parameter("input_score").as_double();
-    config_.init_score = this->get_parameter("init_score").as_double();
-    config_.update_score = this->get_parameter("update_score").as_double();
-    config_.post_score = this->get_parameter("post_score").as_double();
-    config_.latency = this->get_parameter("latency").as_double();
-
-    num_future_states_ = this->get_parameter("num_future_states").as_int();
+    num_future_states_ = this->declare_parameter("num_future_states", 15);
 
     timestamp_for_tracker_ = 0;
     tracker_ = Tracker3D("Centerpoint", config_);
 
-    //Diagnostic
+    //Diagnostic params
     double input_freq = declare_parameter("input_main_freq", 10.0);
     double output_freq = declare_parameter("output_freq", 10.0);
     double diag_min_time = declare_parameter("diag_min_time", 0.0);
@@ -180,11 +164,11 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
         auto [tracked_bboxes, track_ids] = tracker_.tracking(bbox_array, &score_array, nullptr, timestamp_for_tracker_);
         timestamp_for_tracker_++;
 
-        auto tracks = tracker_.post_processing(config_);
+        auto previous_trajectories = tracker_.post_processing(config_);
 
         std::map<int, std::map<int, std::pair<Eigen::VectorXd, double>>> frame_first_dict;
 
-        for (const auto& [ob_id, track] : tracks) {
+        for (const auto& [ob_id, track] : previous_trajectories) {
             for (const auto& [frame_id, ob] : track.trajectory) {
                 if (ob.updated_state.size() == 0 || ob.score < config_.post_score) {
                     continue;

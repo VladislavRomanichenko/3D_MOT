@@ -59,7 +59,6 @@ void Tracker3D::trajectories_prediction()
     }
 
     for (int id : dead_track_ids) {
-        dead_trajectories_.emplace(id, std::move(active_trajectories_.at(id)));
         active_trajectories_.erase(id);
     }
 }
@@ -163,7 +162,7 @@ std::vector<int> Tracker3D::association()
         Eigen::Index arg_min;
         cost_map.row(i).minCoeff(&arg_min);
 
-        if (min_cost < 2.0) {
+        if (min_cost < config_.association_threshold) {
             ids[i] = all_ids[arg_min];
             cost_map.col(arg_min).setConstant(100000);
         } else {
@@ -213,11 +212,6 @@ std::pair<Eigen::MatrixXd, std::vector<int>> Tracker3D::trajectories_update_init
 std::map<int, Trajectory> Tracker3D::post_processing(const Config& config)
 {
     std::map<int, Trajectory> tra;
-
-    for (auto& [key, track] : dead_trajectories_) {
-        track.filtering(config);
-        tra.emplace(key, track);
-    }
 
     for (auto& [key, track] : active_trajectories_) {
         track.filtering(config);
