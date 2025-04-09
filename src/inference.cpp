@@ -207,11 +207,11 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
 
 
             dynamic_objects.objects.push_back(tracked_object);
-            diag_output->tick(objects->header.stamp);
         }
     }
 
     prev_time_ = msg_time;
+    diag_output->tick(objects->header.stamp);
     publisher_->publish(dynamic_objects);
 }
 
