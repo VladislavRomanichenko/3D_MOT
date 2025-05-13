@@ -1,4 +1,6 @@
 #include "inference.hpp"
+#include <fstream>
+#include <iomanip>
 
 Tracker::Tracker() : Node("tracker_node"), diag_updater(this) {
     diag_updater.setHardwareID("none");
@@ -101,6 +103,20 @@ objects_msgs::msg::DynamicObject Tracker::eigen_array_to_dynamic_msg(const Eigen
     return dynamic_object;
 }
 
+void Tracker::save_result(const std::string& filename, int frame, int track_id, const std::string& type,
+                                double truncation, double occlusion, double alpha,
+                                double h, double w, double l,
+                                double x, double y, double z, double ry) {
+    std::ofstream out(filename, std::ios::app);
+    out << frame << " " << track_id << " " << type << " "
+        << truncation << " " << occlusion << " " << alpha << " "
+        << -1 << " " << -1 << " " << -1 << " " << -1 << " " //2D box (x1 y1 x2 y2), заполняем как -1 для отключения подсчёта метрик для 2D
+        << std::fixed << std::setprecision(6)
+        << h << " " << w << " " << l << " "
+        << x << " " << y << " " << z << " "
+        << ry << std::endl;
+    out.close();
+}
 
 void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr objects)
 {
@@ -213,6 +229,26 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
     prev_time_ = msg_time;
     diag_output->tick(objects->header.stamp);
     publisher_->publish(dynamic_objects);
+
+    // После публикации dynamic_objects, сохраняем результаты для оценки
+    // Пример: сохраняем все треки текущего кадра в файл "results/0000.txt"
+    std::string save_path = "results/0000.txt";
+    int frame = objects->header.stamp.sec;
+    for (const auto& tracked_object : dynamic_objects.objects) {
+        int track_id = tracked_object.object.id;
+        std::string type = "Car";
+        double truncation = 0;
+        double occlusion = 0;
+        double alpha = 0.0;
+        double h = tracked_object.object.size.z;
+        double w = tracked_object.object.size.x;
+        double l = tracked_object.object.size.y;
+        double X = tracked_object.object.pose.position.x;
+        double Y = tracked_object.object.pose.position.y;
+        double Z = tracked_object.object.pose.position.z;
+        double ry = get_object_yaw(tracked_object.object);
+        save_kitti_result(save_path, frame, track_id, type, truncation, occlusion, alpha, h, w, l, X, Y, Z, ry);
+    }
 }
 
 
