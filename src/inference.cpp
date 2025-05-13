@@ -230,8 +230,9 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
     diag_output->tick(objects->header.stamp);
     publisher_->publish(dynamic_objects);
 
-    // После публикации dynamic_objects, сохраняем результаты для оценки
-    // Пример: сохраняем все треки текущего кадра в файл "results/0000.txt"
+    //TODO: добавить изменений назваиня файла в последовательности 
+    //      добавить сохранение в папку sha_results(например)
+    //      сделать флаг, при котором сохранение результатов и публикация в топик будут раздельно
     std::string save_path = "results/0000.txt";
     int frame = objects->header.stamp.sec;
     for (const auto& tracked_object : dynamic_objects.objects) {
