@@ -10,8 +10,10 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>rclcpp</depend>
+  <depend>rclpy</depend>
   <depend>Eigen3</depend>
   <depend>objects_msgs</depend>
+  <depend>std_msgs</depend>
   <depend>diagnostic_msgs</depend>
   <depend>diagnostic_updater</depend>
 

@@ -233,7 +233,7 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
     //TODO: добавить изменений назваиня файла в последовательности 
     //      добавить сохранение в папку sha_results(например)
     //      сделать флаг, при котором сохранение результатов и публикация в топик будут раздельно
-    std::string save_path = "results/0000.txt";
+    std::string save_path = "evaluation/tracker_results/0000.txt";
     int frame = objects->header.stamp.sec;
     for (const auto& tracked_object : dynamic_objects.objects) {
         int track_id = tracked_object.object.id;
@@ -248,7 +248,7 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
         double Y = tracked_object.object.pose.position.y;
         double Z = tracked_object.object.pose.position.z;
         double ry = get_object_yaw(tracked_object.object);
-        save_kitti_result(save_path, frame, track_id, type, truncation, occlusion, alpha, h, w, l, X, Y, Z, ry);
+        save_result(save_path, frame, track_id, type, truncation, occlusion, alpha, h, w, l, X, Y, Z, ry);
     }
 }
 

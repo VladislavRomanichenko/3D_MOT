@@ -8,10 +8,13 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclpy REQUIRED)
 find_package(Eigen3 REQUIRED)
 
 find_package(tf2_ros REQUIRED)
 find_package(tf2 REQUIRED)
+
+find_package(std_msgs REQUIRED)
 
 find_package(diagnostic_msgs REQUIRED)
 find_package(diagnostic_updater REQUIRED)
@@ -43,6 +46,11 @@ ament_target_dependencies(tracker_node
 
 install(TARGETS tracker_node
   DESTINATION lib/${PROJECT_NAME})
+
+install(PROGRAMS
+  evaluation/evaluate_node.py
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}/
