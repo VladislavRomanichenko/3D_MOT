@@ -61,6 +61,8 @@ private:
     int num_future_states_;
     int timestamp_for_tracker_;
 
+    bool save_results_for_evaluation_;
+
     void save_result(const std::string& filename, int frame, int track_id, const std::string& type,
                            double truncation, double occlusion, double alpha,
                            double h, double w, double l,

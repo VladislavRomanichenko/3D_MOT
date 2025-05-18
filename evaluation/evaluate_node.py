@@ -3,7 +3,7 @@ from rclpy.node import Node
 from std_msgs.msg import Header
 from objects_msgs.msg import Object, ObjectArray
 import os
-
+import numpy as np
 label = {
     'car': 1,
     'van': 2,
@@ -45,7 +45,11 @@ class LabelPublisher(Node):
                 obj.size.x = float(fields[11])
                 obj.size.y = float(fields[12])
                 obj.size.z = float(fields[10])
-                #TODO: заполнить rotation
+                yaw = float(fields[16])
+                obj.pose.orientation.x = 0.0
+                obj.pose.orientation.y = 0.0
+                obj.pose.orientation.z = np.sin(yaw / 2)
+                obj.pose.orientation.w = np.cos(yaw / 2)
                 msg.objects.append(obj)
         self.publisher_.publish(msg)
         self.get_logger().info(f'Published frame {self.frame} with {len(msg.objects)} objects')

@@ -15,6 +15,7 @@ Tracker::Tracker() : Node("tracker_node"), diag_updater(this) {
     tracker_flag_ = this->declare_parameter("tracker_flag", false);
     timeout_ = rclcpp::Duration::from_seconds(this->declare_parameter("timeout", 0.01));
     target_frame_ = this->declare_parameter("target_frame", "local_map");
+    save_results_for_evaluation_ = this->declare_parameter("save_results_for_evaluation", false);
     
     //Declare params for config
     Config config_;
@@ -132,15 +133,25 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
     }
 
     geometry_msgs::msg::TransformStamped tf;
-    try {
-        tf = tf_buffer_->lookupTransform(target_frame_, objects->header.frame_id, objects->header.stamp, timeout_);
-    } catch (const tf2::TransformException& ex) {
-        RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
-                            "tf lookup error: %s", ex.what());
-        diag_lvl = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
-        diag_msg = std::string("Can't get robot coordinates");
-        diag_updater.force_update();
-        return;
+    if (!save_results_for_evaluation_) {
+        try {
+            tf = tf_buffer_->lookupTransform(target_frame_, objects->header.frame_id, objects->header.stamp, timeout_);
+        } catch (const tf2::TransformException& ex) {
+            RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
+                                "tf lookup error: %s", ex.what());
+            diag_lvl = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
+            diag_msg = std::string("Can't get robot coordinates");
+            diag_updater.force_update();
+            return;
+        }
+    } else {
+        tf.transform.translation.x = 0.0;
+        tf.transform.translation.y = 0.0;
+        tf.transform.translation.z = 0.0;
+        tf.transform.rotation.x = 0.0;
+        tf.transform.rotation.y = 0.0;
+        tf.transform.rotation.z = 0.0;
+        tf.transform.rotation.w = 1.0;
     }
 
     objects_msgs::msg::DynamicObjectArray dynamic_objects;
@@ -153,12 +164,9 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
 
     for (auto& obj : objects->objects) {
         transform_object(obj, tf);
-
         if (tracker_flag_) {
             Eigen::VectorXd bbox = dynamic_msg_to_eigen_array(obj);
-
             bbox_list.push_back(bbox);
-
             score_arr.push_back(obj.score);
             label_arr.push_back(obj.label);
         } else {
@@ -230,25 +238,24 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
     diag_output->tick(objects->header.stamp);
     publisher_->publish(dynamic_objects);
 
-    //TODO: добавить изменений назваиня файла в последовательности 
-    //      добавить сохранение в папку sha_results(например)
-    //      сделать флаг, при котором сохранение результатов и публикация в топик будут раздельно
-    std::string save_path = "evaluation/tracker_results/0000.txt";
-    int frame = objects->header.stamp.sec;
-    for (const auto& tracked_object : dynamic_objects.objects) {
-        int track_id = tracked_object.object.id;
-        std::string type = "Car";
-        double truncation = 0;
-        double occlusion = 0;
-        double alpha = 0.0;
-        double h = tracked_object.object.size.z;
-        double w = tracked_object.object.size.x;
-        double l = tracked_object.object.size.y;
-        double X = tracked_object.object.pose.position.x;
-        double Y = tracked_object.object.pose.position.y;
-        double Z = tracked_object.object.pose.position.z;
-        double ry = get_object_yaw(tracked_object.object);
-        save_result(save_path, frame, track_id, type, truncation, occlusion, alpha, h, w, l, X, Y, Z, ry);
+    if (save_results_for_evaluation_) {
+        std::string save_path = "evaluation/tracker_results/0001.txt";
+        int frame = objects->header.stamp.sec;
+        for (const auto& tracked_object : dynamic_objects.objects) {
+            int track_id = tracked_object.object.id;
+            std::string type = "Car"; //TODO сделать заполнение в соответствии с форматами
+            double truncation = 0;
+            double occlusion = 0;
+            double alpha = 0.0;
+            double h = tracked_object.object.size.z;
+            double w = tracked_object.object.size.x;
+            double l = tracked_object.object.size.y;
+            double x = tracked_object.object.pose.position.x;
+            double y = tracked_object.object.pose.position.y;
+            double z = tracked_object.object.pose.position.z;
+            double yaw = get_object_yaw(tracked_object.object);
+            save_result(save_path, frame, track_id, type, truncation, occlusion, alpha, h, w, l, x, y, z, yaw);
+        }
     }
 }
 
