@@ -210,12 +210,17 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
             tracked_object.object.score = score_arr[i];
 
             tracked_object.object.id = static_cast<int>(track_ids[i]);
+            //TODO: ПРОТЕСТИРОВАТЬ правильно ли проставляются таймстампы объектам
+            rclcpp::Time base_time = objects->header.stamp;
+            double dt = 0.1;
+            int pred_idx = 1;
 
             if (future_predictions.count(track_ids[i])) {
                 for (const auto& preds : future_predictions[track_ids[i]]) {
                     geometry_msgs::msg::PoseStamped preds_pose;
                     preds_pose.header = objects->header;
                     preds_pose.header.frame_id = target_frame_;
+                    preds_pose.header.stamp = base_time + rclcpp::Duration::from_seconds(dt * pred_idx);
 
                     if (preds.size() >= 13) {
                         preds_pose.pose.position.x = preds(0);
@@ -226,9 +231,9 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
                     } else {
                         RCLCPP_WARN(this->get_logger(), "Traj size error");
                     }
+                    pred_idx++;
                 }
             }
-
 
             dynamic_objects.objects.push_back(tracked_object);
         }
