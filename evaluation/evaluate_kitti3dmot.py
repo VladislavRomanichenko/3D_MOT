@@ -185,6 +185,8 @@ class trackingEvaluation(object):
             return False
         return True
 
+
+    #TODO: Написать загрузку данных из формата SUSTech
     def _loadData(self, root_dir, cls, min_score=-1000, loading_groundtruth=False):
         """
             Generic loader for ground truth and tracking data.
