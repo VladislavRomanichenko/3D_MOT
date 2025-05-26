@@ -186,7 +186,7 @@ class trackingEvaluation(object):
         return True
 
 
-    #TODO: Написать загрузку данных из формата SUSTech
+    #TODO: Написать загрузку данных из формата SUSTech (или просто форматировать SUSTech в KITTI.....)
     def _loadData(self, root_dir, cls, min_score=-1000, loading_groundtruth=False):
         """
             Generic loader for ground truth and tracking data.

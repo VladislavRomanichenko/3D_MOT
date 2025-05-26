@@ -119,6 +119,24 @@ void Tracker::save_result(const std::string& filename, int frame, int track_id, 
     out.close();
 }
 
+//TODO проверить с нашим центрпоинтом
+std::string label_to_type(int label) {
+    switch (label) {
+        case 0: return "Car";
+        case 1: return "Pedestrian";
+        case 2: return "Cyclist";
+        case 3: return "Truck";
+        case 4: return "Bus";
+        case 5: return "Trailer";
+        case 6: return "Construction_vehicle";
+        case 7: return "Traffic_cone";
+        case 8: return "Barrier";
+        case 9: return "Motorcycle";
+        case 10: return "Bicycle";
+        default: return "Unknown";
+    }
+}
+
 void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr objects)
 {
     rclcpp::Time msg_time = objects->header.stamp;
@@ -244,14 +262,27 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
     publisher_->publish(dynamic_objects);
 
     if (save_results_for_evaluation_) {
-        std::string save_path = "evaluation/tracker_results/0001.txt";
+        //Имя файла из frame_id
+        std::string frame_id = objects->header.frame_id;
+        
+        // Убираем префикс
+        if (frame_id.find("sequence_") == 0) {
+            frame_id = frame_id.substr(9);
+        }
+        //Форматируем имя файла как в groundtruth файлах из папки label
+        std::string filename = frame_id;
+        if (filename.length() < 4) {
+            filename = std::string(4 - filename.length(), '0') + filename;
+        }
+        
+        std::string save_path = "evaluation/tracker_results/" + filename + ".txt";
         int frame = objects->header.stamp.sec;
         for (const auto& tracked_object : dynamic_objects.objects) {
             int track_id = tracked_object.object.id;
-            std::string type = "Car"; //TODO сделать заполнение в соответствии с форматами
-            double truncation = 0;
-            double occlusion = 0;
-            double alpha = 0.0;
+            std::string type = label_to_type(tracked_object.object.label);
+            double truncation = -1;  //нужно только для 2D
+            double occlusion = -1;   //нужно только для 2D
+            double alpha = -10;      //нужно только для 2D
             double h = tracked_object.object.size.z;
             double w = tracked_object.object.size.x;
             double l = tracked_object.object.size.y;

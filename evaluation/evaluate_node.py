@@ -28,7 +28,7 @@ class LabelPublisher(Node):
         msg = ObjectArray()
         msg.header = Header()
         msg.header.stamp = self.get_clock().now().to_msg()
-        msg.header.frame_id = 'map'
+        msg.header.frame_id = 'sequence_' + os.path.splitext(self.files[self.frame])[0]
         file_path = os.path.join(self.label_dir, self.files[self.frame])
         with open(file_path, 'r') as f:
             for line in f:
