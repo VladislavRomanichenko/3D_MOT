@@ -254,7 +254,7 @@ class trackingEvaluation(object):
                         return
 
                 # do not consider objects marked as invalid
-                if t_data.track_id is -1 and t_data.obj_type != "dontcare":
+                if t_data.track_id == -1 and t_data.obj_type != "dontcare":
                     continue
 
                 idx = t_data.frame
@@ -1102,16 +1102,19 @@ def evaluate(result_sha,eval_3diou,eval_2diou):
         # load tracker data and check provided classes
         try:
             if not e.loadTracker():
+                print(f"Failed to load tracker data for class {c}")
                 continue
             print("Loading Results - Success")
             print("Evaluate Object Class: %s" % c.upper())
             classes.append(c)
-        except:
+        except Exception as ex:
+            print(f"Error loading tracker data: {str(ex)}")
             print("Feel free to contact us (lenz@kit.edu), if you receive this error message:")
             print("   Caught exception while loading result data.")
             break
         # load groundtruth data for this class
         if not e.loadGroundtruth():
+            print(f"Failed to load ground truth for class {c}")
             raise ValueError("Ground truth not found.")
         print("Loading Groundtruth - Success")
         # sanity checks
@@ -1123,35 +1126,60 @@ def evaluate(result_sha,eval_3diou,eval_2diou):
 
         if eval_3diou: suffix = 'eval3D'
         else: suffix = 'eval2D'
-        filename = os.path.join(e.t_path, "../summary_%s_average_%s.txt" % (c, suffix)); dump = open(filename, "w+")
+        filename = os.path.join(e.t_path, "../summary_%s_average_%s.txt" % (c, suffix))
+        print(f"Writing metrics to {filename}")
+        dump = open(filename, "w+")
         stat_meter = stat(t_sha=result_sha, cls=c, suffix=suffix, dump=dump)
-        e.compute3rdPartyMetrics()
+        
+        try:
+            e.compute3rdPartyMetrics()
+            print("Initial metrics computation successful")
+        except Exception as ex:
+            print(f"Error in initial metrics computation: {str(ex)}")
+            continue
 
         # evaluate the mean average metrics
         best_mota, best_threshold = 0, -10000
         threshold_list, recall_list = e.getThresholds(e.scores, e.num_gt)
+        print(f"Computing metrics for {len(threshold_list)} thresholds")
+        
         for threshold_tmp, recall_tmp in zip(threshold_list, recall_list):
-            data_tmp = dict()
+            try:
+                data_tmp = dict()
+                e.reset()
+                e.compute3rdPartyMetrics(threshold_tmp, recall_tmp)
+                data_tmp['mota'], data_tmp['motp'], data_tmp['moda'], data_tmp['modp'], data_tmp['precision'], \
+                data_tmp['F1'], data_tmp['fp'], data_tmp['fn'], data_tmp['recall'], data_tmp['sMOTA'] = \
+                    e.MOTA, e.MOTP, e.MODA, e.MODP, e.precision, e.F1, e.fp, e.fn, e.recall, e.sMOTA
+                
+                # Print debug info
+                print(f"Threshold {threshold_tmp:.2f}, Recall {recall_tmp:.2f}:")
+                print(f"  MOTA: {data_tmp['mota']:.4f}, MOTP: {data_tmp['motp']:.4f}")
+                print(f"  Precision: {data_tmp['precision']:.4f}, F1: {data_tmp['F1']:.4f}")
+                
+                stat_meter.update(data_tmp)
+                mota_tmp = e.MOTA
+                if mota_tmp > best_mota: 
+                    best_threshold = threshold_tmp
+                    best_mota = mota_tmp
+                e.saveToStats(dump, threshold_tmp, recall_tmp)
+            except Exception as ex:
+                print(f"Error computing metrics for threshold {threshold_tmp}: {str(ex)}")
+                continue
+
+        try:
             e.reset()
-            e.compute3rdPartyMetrics(threshold_tmp, recall_tmp)
-            data_tmp['mota'], data_tmp['motp'], data_tmp['moda'], data_tmp['modp'], data_tmp['precision'], \
-            data_tmp['F1'], data_tmp['fp'], data_tmp['fn'], data_tmp['recall'], data_tmp['sMOTA'] = \
-                e.MOTA, e.MOTP, e.MODA, e.MODP, e.precision, e.F1, e.fp, e.fn, e.recall, e.sMOTA
-            stat_meter.update(data_tmp)
-            mota_tmp = e.MOTA
-            if mota_tmp > best_mota: 
-                best_threshold = threshold_tmp
-                best_mota = mota_tmp
-            e.saveToStats(dump, threshold_tmp, recall_tmp) 
+            e.compute3rdPartyMetrics(best_threshold)
+            e.saveToStats(dump)
+            print(f"Final metrics computation with best threshold {best_threshold:.2f}")
 
-        e.reset()
-        e.compute3rdPartyMetrics(best_threshold)
-        e.saveToStats(dump) 
-
-        stat_meter.output()
-        summary = stat_meter.print_summary()
-        stat_meter.plot()
-        print(summary)       # mail or print the summary.
+            stat_meter.output()
+            summary = stat_meter.print_summary()
+            stat_meter.plot()
+            print(summary)
+        except Exception as ex:
+            print(f"Error in final metrics computation: {str(ex)}")
+        
         dump.close()
 
     # finish

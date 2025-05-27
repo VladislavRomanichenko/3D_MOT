@@ -60,6 +60,8 @@ private:
     rclcpp::Time prev_time_;
     int num_future_states_;
     int timestamp_for_tracker_;
+    int current_timestamp_;  // Counter for current file timestamp
+    std::string prev_frame_id_;  // Store previous frame_id to detect sequence changes
 
     bool save_results_for_evaluation_;
 

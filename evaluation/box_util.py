@@ -91,10 +91,33 @@ def convex_hull_intersection(p1, p2):
     """
     inter_p = polygon_clip(p1,p2)
     if inter_p is not None:
-        hull_inter = ConvexHull(inter_p)
-        return inter_p, hull_inter.volume
+        if len(inter_p) < 3:
+            return None, 0.0
+            
+        inter_p = np.array(inter_p)
+        
+        min_dist = 1e-6  
+        valid_points = []
+        for i in range(len(inter_p)):
+            is_valid = True
+            for j in range(len(valid_points)):
+                if np.linalg.norm(inter_p[i] - valid_points[j]) < min_dist:
+                    is_valid = False
+                    break
+            if is_valid:
+                valid_points.append(inter_p[i])
+        
+        if len(valid_points) < 3:
+            return None, 0.0
+            
+        try:
+            hull_inter = ConvexHull(np.array(valid_points))
+            return valid_points, hull_inter.volume
+        except Exception as e:
+            print(f"Warning: ConvexHull computation failed: {str(e)}")
+            return None, 0.0
     else:
-        return None, 0.0  
+        return None, 0.0
 
 def box3d_vol(corners):
     ''' corners: (8,3) no assumption on axis direction '''

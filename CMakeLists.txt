@@ -7,6 +7,7 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_python REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(Eigen3 REQUIRED)
@@ -50,6 +51,13 @@ install(TARGETS tracker_node
 install(PROGRAMS
   evaluation/evaluate_node.py
   DESTINATION lib/${PROJECT_NAME}
+  PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+)
+
+install(DIRECTORY
+  evaluation
+  DESTINATION lib/${PROJECT_NAME}
+  PATTERN "*.py"
 )
 
 install(DIRECTORY launch

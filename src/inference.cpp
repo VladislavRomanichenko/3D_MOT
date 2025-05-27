@@ -1,6 +1,7 @@
 #include "inference.hpp"
 #include <fstream>
 #include <iomanip>
+#include <filesystem>
 
 Tracker::Tracker() : Node("tracker_node"), diag_updater(this) {
     diag_updater.setHardwareID("none");
@@ -16,6 +17,10 @@ Tracker::Tracker() : Node("tracker_node"), diag_updater(this) {
     timeout_ = rclcpp::Duration::from_seconds(this->declare_parameter("timeout", 0.01));
     target_frame_ = this->declare_parameter("target_frame", "local_map");
     save_results_for_evaluation_ = this->declare_parameter("save_results_for_evaluation", false);
+    
+    //Params for evaluation mode
+    prev_frame_id_ = "";  
+    current_timestamp_ = 0;  
     
     //Declare params for config
     Config config_;
@@ -119,23 +124,29 @@ void Tracker::save_result(const std::string& filename, int frame, int track_id, 
     out.close();
 }
 
-//TODO проверить с нашим центрпоинтом
+
 std::string label_to_type(int label) {
     switch (label) {
-        case 0: return "Car";
-        case 1: return "Pedestrian";
-        case 2: return "Cyclist";
-        case 3: return "Truck";
-        case 4: return "Bus";
-        case 5: return "Trailer";
-        case 6: return "Construction_vehicle";
-        case 7: return "Traffic_cone";
-        case 8: return "Barrier";
-        case 9: return "Motorcycle";
-        case 10: return "Bicycle";
+        case -1: return "DontCare";
+        case 1: return "Car";
+        case 2: return "Van";
+        case 3: return "Pedestrian";
+        case 4: return "Cyclist";
+        case 5: return "Truck";
+        case 6: return "Bus";
+        case 7: return "Trailer";
+        case 8: return "Construction_vehicle";
+        case 9: return "Traffic_cone";
+        case 10: return "Barrier";
+        case 11: return "Motorcycle";
+        case 12: return "Bicycle";
+        case 13: return "Misc";
+        case 14: return "Person";
+        case 15: return "Tram";
         default: return "Unknown";
     }
 }
+
 
 void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr objects)
 {
@@ -275,8 +286,15 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
             filename = std::string(4 - filename.length(), '0') + filename;
         }
         
-        std::string save_path = "evaluation/tracker_results/" + filename + ".txt";
-        int frame = objects->header.stamp.sec;
+        std::string save_path = "results/tracker_results/data/" + filename + ".txt";
+
+        if (frame_id != prev_frame_id_) {
+            current_timestamp_ = 0;
+            prev_frame_id_ = frame_id;
+        }
+        
+        int frame = current_timestamp_;
+        
         for (const auto& tracked_object : dynamic_objects.objects) {
             int track_id = tracked_object.object.id;
             std::string type = label_to_type(tracked_object.object.label);
@@ -292,6 +310,8 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
             double yaw = get_object_yaw(tracked_object.object);
             save_result(save_path, frame, track_id, type, truncation, occlusion, alpha, h, w, l, x, y, z, yaw);
         }
+        
+        current_timestamp_++;
     }
 }
 
