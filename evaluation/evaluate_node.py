@@ -9,6 +9,7 @@ import numpy as np
 import csv
 from typing import Dict, List, Optional
 import subprocess
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 
 class LabelPublisher(Node):
     def __init__(self):
@@ -17,11 +18,15 @@ class LabelPublisher(Node):
         #Declare parameters
         self.label_dir = self.declare_parameter('label_dir', 'evaluation/label').get_parameter_value().string_value
         self.default_score = self.declare_parameter('default_score', 1.0).get_parameter_value().double_value
-        self.publish_rate = self.declare_parameter('publish_rate', 0.1).get_parameter_value().double_value
         self.test_mode = self.declare_parameter('test_mode', False).get_parameter_value().bool_value
         
-        #Publisher
-        self.publisher_ = self.create_publisher(ObjectArray, 'objects3d', 10)
+        qos_profile = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            history=HistoryPolicy.KEEP_ALL,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            depth=1000
+        )
+        self.publisher_ = self.create_publisher(ObjectArray, 'objects3d', qos_profile)
         
         #TODO СДЕЛАТЬ УЧЁТ ОТ КАКОГО ДО КАКОГО ФРЕЙМА МЫ СЧИТЫВАЕМ ДАННЫЕ
         #Evaluate_tracking.seqmap.val
@@ -67,8 +72,7 @@ class LabelPublisher(Node):
         
         self._load_next_file()
         
-        #timer
-        self.timer = self.create_timer(self.publish_rate, self.publish_labels)
+        self.timer = self.create_timer(0.1, self.publish_labels) 
         self.get_logger().info(f'Found {len(self.files)} files for sequences: {self.sequences}')
         
         if self.test_mode:
@@ -177,7 +181,6 @@ class LabelPublisher(Node):
                         self.stats['total_objects'] += 1
             
             self.current_timestamp = min(self.current_file_objects.keys()) if self.current_file_objects else None
-            return True
             
         except Exception as e:
             self.get_logger().error(f'Error loading file {file_path}: {e}')
@@ -220,7 +223,6 @@ class LabelPublisher(Node):
         msg.objects = self.current_file_objects[self.current_timestamp]
         
         self.publisher_.publish(msg)
-        
         self.current_file_objects.pop(self.current_timestamp)
         if self.current_file_objects:
             self.current_timestamp = min(self.current_file_objects.keys())

@@ -120,7 +120,7 @@ void Tracker::save_result(const std::string& filename, int frame, int track_id, 
         << std::fixed << std::setprecision(6)
         << h << " " << w << " " << l << " "
         << x << " " << y << " " << z << " "
-        << ry << std::endl;
+        << ry << " " << 0.75 << std::endl;
     out.close();
 }
 
