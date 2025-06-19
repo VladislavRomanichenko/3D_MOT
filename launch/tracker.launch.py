@@ -21,12 +21,12 @@ def generate_launch_description():
                 {'LiDAR_scanning_frequency': 10.0},
 
                 # Trajectory prediction
-                {'num_future_states': 10},
+                {'num_future_states': 50},
 
                 # Max prediction number of state function
                 {'max_prediction_num': 20},
                 {'max_prediction_num_for_new_object': 8},
-                {'association_threshold': 1.5},
+                {'association_threshold': 1.3},
 
                 # Detection score threshold
                 {'input_score': 0.0},

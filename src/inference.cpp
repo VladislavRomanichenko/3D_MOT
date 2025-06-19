@@ -254,7 +254,7 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
                     if (preds.size() >= 13) {
                         preds_pose.pose.position.x = preds(0);
                         preds_pose.pose.position.y = preds(1);
-                        preds_pose.pose.position.z = preds(2);
+                        preds_pose.pose.position.z = tracked_object.object.pose.position.z; //Так как фильтр калмана реагирует и на эти изменения
                         set_object_yaw(preds_pose, preds(12));
                         tracked_object.prediction.push_back(preds_pose);
                     } else {
