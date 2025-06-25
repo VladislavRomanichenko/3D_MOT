@@ -23,8 +23,11 @@ def polygon_clip(subjectPolygon, clipPolygon):
 		dc = [cp1[0] - cp2[0], cp1[1] - cp2[1]]
 		dp = [s[0] - e[0], s[1] - e[1]]
 		n1 = cp1[0] * cp2[1] - cp1[1] * cp2[0]
-		n2 = s[0] * e[1] - s[1] * e[0] 
-		n3 = 1.0 / (dc[0] * dp[1] - dc[1] * dp[0])
+		n2 = s[0] * e[1] - s[1] * e[0]
+		denom = (dc[0] * dp[1] - dc[1] * dp[0])
+		#print(f"computeIntersection: dc={dc}, dp={dp}, denom={denom}")
+		n3 = 1.0 / denom
+		#print(f"computeIntersection: n1={n1}, n2={n2}, n3={n3}")
 		return [(n1 * dp[0] - n2 * dc[0]) * n3, (n1 * dp[1] - n2 * dc[1]) * n3]
  
 	outputList = subjectPolygon
@@ -45,19 +48,32 @@ def polygon_clip(subjectPolygon, clipPolygon):
 			s = e
 		cp1 = cp2
 		if len(outputList) == 0: return None
-	return (outputList)
+	result = outputList
+	# Фильтруем невалидные точки (NaN/inf)
+	if result is not None:
+		result = [p for p in result if np.all(np.isfinite(p))]
+		if len(result) == 0:
+			return None
+	return result
 
 def convex_hull_intersection(p1, p2):
 	""" Compute area of two convex hull's intersection area.
 		p1,p2 are a list of (x,y) tuples of hull vertices.
 		return a list of (x,y) for the intersection and its volume
 	"""
-	inter_p = polygon_clip(p1,p2)
+	inter_p = polygon_clip(p1, p2)
+	# Фильтруем невалидные точки (NaN/inf)
 	if inter_p is not None:
-		hull_inter = ConvexHull(inter_p)
-		return inter_p, hull_inter.volume
+		inter_p = [p for p in inter_p if np.all(np.isfinite(p))]
+		if len(inter_p) < 3:
+			return None, 0.0
+		try:
+			hull_inter = ConvexHull(inter_p)
+			return inter_p, hull_inter.volume
+		except Exception:
+			return None, 0.0
 	else:
-		return None, 0.0  
+		return None, 0.0
 
 def compute_inter_2D(boxa_bottom, boxb_bottom):
 	# computer intersection over union of two sets of bottom corner points
