@@ -10,8 +10,9 @@ try:
     from ordereddict import OrderedDict # can be installed using pip
 except:
     from collections import OrderedDict # only included from python 2.7 on
+import traceback
 
-from box_util import boxoverlap, box3doverlap
+from dist_metrics import iou
 
 num_sample_pts = 41.0
 
@@ -21,7 +22,7 @@ class tData:
     """
     def __init__(self,frame=-1,obj_type="unset",truncation=-1,occlusion=-1,\
                  obs_angle=-10,x1=-1,y1=-1,x2=-1,y2=-1,w=-1,h=-1,l=-1,\
-                 X=-1000,Y=-1000,Z=-1000,yaw=-10,score=-1000,track_id=-1):
+                 x=-1000,y=-1000,z=-1000,ry=-10,score=-1000,track_id=-1):
         """
             Constructor, initializes the object given the parameters.
         """
@@ -40,10 +41,10 @@ class tData:
         self.w          = w
         self.h          = h
         self.l          = l
-        self.X          = X
-        self.Y          = Y
-        self.Z          = Z
-        self.yaw        = yaw
+        self.x          = x
+        self.y          = y
+        self.z          = z
+        self.ry        = ry
         self.score      = score
         self.ignored    = False
         self.valid      = False
@@ -56,6 +57,40 @@ class tData:
         
         attrs = vars(self)
         return '\n'.join("%s: %s" % item for item in attrs.items())
+
+
+def boxoverlap(a, b, criterion="union"):
+    """
+        boxoverlap computes intersection over union for bbox a and b in KITTI format.
+        If the criterion is 'union', overlap = (a inter b) / a union b).
+        If the criterion is 'a', overlap = (a inter b) / a, where b should be a dontcare area.
+        note that this is different from the iou in dist_metrics.py because this one uses 2D 
+        box rather than projected 3D boxes to compute overlap
+    """
+    
+    x1 = max(a.x1, b.x1)
+    y1 = max(a.y1, b.y1)
+    x2 = min(a.x2, b.x2)
+    y2 = min(a.y2, b.y2)
+
+    w = x2-x1
+    h = y2-y1
+
+    if w<=0. or h<=0.:
+        return 0.
+    inter = w*h
+    aarea = (a.x2-a.x1) * (a.y2-a.y1)
+    barea = (b.x2-b.x1) * (b.y2-b.y1)
+
+    # intersection over union overlap
+    if criterion.lower()=="union":
+        o = inter / float(aarea+barea-inter)
+    elif criterion.lower()=="a":
+        o = float(inter) / float(aarea)
+    else:
+        raise TypeError("Unkown type for criterion")
+    return o
+
 
 class trackingEvaluation(object):
     """ tracking statistics (CLEAR MOT, id-switches, fragments, ML/PT/MT, precision/recall)
@@ -213,7 +248,7 @@ class trackingEvaluation(object):
             id_frame_cache = []
             for line in f:
                 # KITTI tracking benchmark data format:
-                # (frame,tracklet_id,objectType,truncation,occlusion,alpha,x1,y1,x2,y2,h,w,l,X,Y,Z,ry)
+                # (frame,tracklet_id,objectType,truncation,occlusion,alpha,x1,y1,x2,y2,h,w,l,x,y,z,ry)
                 line = line.strip()
                 fields            = line.split(" ")
                 # classes that should be loaded (ignored neighboring classes)
@@ -240,10 +275,11 @@ class trackingEvaluation(object):
                 t_data.h            = float(fields[10])         # height [m]
                 t_data.w            = float(fields[11])         # width  [m]
                 t_data.l            = float(fields[12])         # length [m]
-                t_data.X            = float(fields[13])         # X [m]
-                t_data.Y            = float(fields[14])         # Y [m]
-                t_data.Z            = float(fields[15])         # Z [m]
-                t_data.yaw          = float(fields[16])         # yaw angle [rad]
+                t_data.x            = float(fields[13])         # x [m]
+                t_data.y            = float(fields[14])         # y [m]
+                t_data.z            = float(fields[15])         # z [m]
+                t_data.ry          = float(fields[16])         # ry angle [rad]
+                t_data.corners_3d_cam = None
                 if not loading_groundtruth:
                     if len(fields) == 17:
                         t_data.score = -1
@@ -284,7 +320,7 @@ class trackingEvaluation(object):
                 # check if uploaded data provides information for 2D and 3D evaluation
                 if not loading_groundtruth and eval_2d is True and(t_data.x1==-1 or t_data.x2==-1 or t_data.y1==-1 or t_data.y2==-1):
                     eval_2d = False
-                if not loading_groundtruth and eval_3d is True and(t_data.X==-1000 or t_data.Y==-1000 or t_data.Z==-1000):
+                if not loading_groundtruth and eval_3d is True and(t_data.x==-1000 or t_data.y==-1000 or t_data.z==-1000):
                     eval_3d = False
 
             # only add existing frames
@@ -458,8 +494,6 @@ class trackingEvaluation(object):
                         seq_tracker_frame.append(trk_tmp)
                 seq_tracker.append(seq_tracker_frame)
 
-
-
             seq_trajectories      = defaultdict(list)
             seq_ignored           = defaultdict(list)
             
@@ -490,7 +524,7 @@ class trackingEvaluation(object):
                 n_gts += len(g)
                 n_trs += len(t)
                 
-                # use hungarian method to associate, using boxoverlap 0..1 as cost
+                # use hungarian method to associate, using box overlap 0..1 as cost
                 # build cost matrix
                 # row is gt, column is det
                 cost_matrix = []
@@ -507,11 +541,11 @@ class trackingEvaluation(object):
                         if self.eval_2diou:
                             c = 1 - boxoverlap(gg, tt)
                         elif self.eval_3diou:
-                            c = 1 - box3doverlap(gg, tt)
+                            c = 1 - iou(gg, tt, metric='iou_3d')
                         else:
                             assert False, 'error'
 
-                        # gating for boxoverlap
+                        # gating for box overlap
                         if c <= 1 - self.min_overlap:
                             cost_row.append(c)
                         else:
@@ -539,7 +573,7 @@ class trackingEvaluation(object):
                 
                 # mapping for tracker ids and ground truth ids
                 for row,col in association_matrix:
-                    # apply gating on boxoverlap
+                    # apply gating on box overlap
                     c = cost_matrix[row][col]
                     if c < max_cost:
                         g[row].tracker   = t[col].track_id
@@ -903,8 +937,6 @@ class trackingEvaluation(object):
         #summary += self.printEntry("False Positives per Sequence", self.fps) + "\n"
         summary += self.printEntry("False Negatives", self.fn) + "\n"
         #summary += self.printEntry("False Negatives per Sequence", self.fns) + "\n"
-        summary += self.printEntry("Ignored False Negatives", self.ifn) + "\n"
-        #summary += self.printEntry("Ignored False Negatives per Sequence", self.ifns) + "\n"
         # summary += self.printEntry("Missed Targets", self.fn) + "\n"
         summary += self.printEntry("ID-switches", self.id_switches) + "\n"
         summary += self.printEntry("Fragmentations", self.fragments) + "\n"
@@ -1111,6 +1143,7 @@ def evaluate(result_sha,eval_3diou,eval_2diou):
             print(f"Error loading tracker data: {str(ex)}")
             print("Feel free to contact us (lenz@kit.edu), if you receive this error message:")
             print("   Caught exception while loading result data.")
+            traceback.print_exc()
             break
         # load groundtruth data for this class
         if not e.loadGroundtruth():
@@ -1136,6 +1169,7 @@ def evaluate(result_sha,eval_3diou,eval_2diou):
             print("Initial metrics computation successful")
         except Exception as ex:
             print(f"Error in initial metrics computation: {str(ex)}")
+            traceback.print_exc()
             continue
 
         # evaluate the mean average metrics
@@ -1186,7 +1220,7 @@ def evaluate(result_sha,eval_3diou,eval_2diou):
     if len(classes)==0:
         print("The uploaded results could not be evaluated. Check for format errors.")
         return False
-    print("Thank you for participating in our benchmark!")
+    print("----FINISH----")
     return True
 
 #########################################################################
