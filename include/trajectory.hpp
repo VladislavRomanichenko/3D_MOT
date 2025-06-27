@@ -24,6 +24,8 @@ struct Object
 class Trajectory 
 {
 public:
+    static constexpr int MAX_HISTORY = 5;//Сколько предыдущих поз мы храним(не менее 2)
+
     Trajectory(const Eigen::VectorXd& init_bb,           
                double init_score,                        
                int init_timestamp,                       
@@ -58,4 +60,5 @@ public:
     void init_parameters();               
     void init_trajectory();               
     double sigmoid(double x);             
+    void erase_oldest_id();
 };

@@ -67,6 +67,7 @@ void Trajectory::state_prediction(int timestamp)
     new_ob.predicted_covariance = predicted_cov;
     new_ob.prediction_score = current_score;
     trajectory[timestamp] = new_ob;
+    erase_oldest_id();
     consecutive_missed_num++;
 }
 
@@ -238,4 +239,11 @@ void Trajectory::init_trajectory()
     obj.score = init_score;
 
     trajectory[init_timestamp] = obj;
+    erase_oldest_id();
+}
+
+void Trajectory::erase_oldest_id() {
+    while (trajectory.size() > MAX_HISTORY){
+        trajectory.erase(trajectory.begin());
+    }
 }
