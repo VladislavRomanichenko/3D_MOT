@@ -1,6 +1,7 @@
 #include <tracker.hpp>
 #include <algorithm>
 #include <cmath>
+#include <numeric>
 
 Tracker3D::Tracker3D(const std::string& box_type,
                     const Config& config)
@@ -219,4 +220,32 @@ std::map<int, Trajectory> Tracker3D::post_processing(const Config& config)
     }
 
     return tra;
+}
+
+bool is_static_trajectory(const Trajectory& traj, double position_threshold, double speed_threshold, double frame_time) {
+    if (traj.trajectory.size() < 2) return false;
+    auto first = traj.trajectory.begin();
+    auto last = std::prev(traj.trajectory.end());
+    if (first == last) return false;
+    if (first->second.updated_state.size() < 3 || last->second.updated_state.size() < 3) return false;
+    Eigen::Vector3d first_pos = first->second.updated_state.head(3);
+    Eigen::Vector3d last_pos = last->second.updated_state.head(3);
+    double dist = (last_pos - first_pos).norm();
+    if (dist < position_threshold) return true;
+    double total_speed = 0.0;
+    int count = 0;
+    auto it = traj.trajectory.begin();
+    auto prev = it++;
+    for (; it != traj.trajectory.end(); ++it, ++prev) {
+        if (prev->second.updated_state.size() < 3 || it->second.updated_state.size() < 3) continue;
+        Eigen::Vector3d p1 = prev->second.updated_state.head(3);
+        Eigen::Vector3d p2 = it->second.updated_state.head(3);
+        double d = (p2 - p1).norm();
+        double speed = d / frame_time;
+        total_speed += speed;
+        ++count;
+    }
+    if (count == 0) return false;
+    double avg_speed = total_speed / count;
+    return avg_speed < speed_threshold;
 }

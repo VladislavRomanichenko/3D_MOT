@@ -217,6 +217,7 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
         auto [tracked_bboxes, track_ids] = tracker_.tracking(bbox_array, &score_array, nullptr, timestamp_for_tracker_);
         timestamp_for_tracker_++;
 
+        /*
         auto previous_trajectories = tracker_.post_processing(config_);
 
         std::map<int, std::map<int, std::pair<Eigen::VectorXd, double>>> frame_first_dict;
@@ -229,6 +230,7 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
                 frame_first_dict[frame_id][ob_id] = {ob.updated_state.transpose(), ob.score};
             }
         }
+        */
 
         auto future_predictions = tracker_.predict_future_trajectories(num_future_states_);
 
@@ -239,12 +241,17 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
             tracked_object.object.score = score_arr[i];
 
             tracked_object.object.id = static_cast<int>(track_ids[i]);
-            //TODO: ПРОТЕСТИРОВАТЬ правильно ли проставляются таймстампы объектам
             rclcpp::Time base_time = objects->header.stamp;
             double dt = 0.1;
             int pred_idx = 1;
 
-            if (future_predictions.count(track_ids[i])) {
+            bool is_static = false;
+            auto it_traj = tracker_.active_trajectories_.find(track_ids[i]);
+            if (it_traj != tracker_.active_trajectories_.end()) {
+                is_static = is_static_trajectory(it_traj->second, 0.15, 0.1, 0.1);
+            }
+
+            if (!is_static && future_predictions.count(track_ids[i])) {
                 for (const auto& preds : future_predictions[track_ids[i]]) {
                     geometry_msgs::msg::PoseStamped preds_pose;
                     preds_pose.header = objects->header;
@@ -263,7 +270,6 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
                     pred_idx++;
                 }
             }
-
             dynamic_objects.objects.push_back(tracked_object);
         }
     }

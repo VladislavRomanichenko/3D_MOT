@@ -25,6 +25,8 @@ public:
     std::map<int, std::vector<Eigen::VectorXd>> predict_future_trajectories(int steps = 0);
     std::map<int, Trajectory> post_processing(const Config& config);
 
+    std::map<int, Trajectory> active_trajectories_;
+
 private:
     Config config_;
     int current_timestamp_;
@@ -33,7 +35,6 @@ private:
     std::unique_ptr<Eigen::Matrix4d> current_pose_;
     std::string box_type_;
     int label_seed_;
-    std::map<int, Trajectory> active_trajectories_;
 
     std::pair<Eigen::MatrixXd, std::vector<int>> compute_cost_map();
     std::vector<int> association();

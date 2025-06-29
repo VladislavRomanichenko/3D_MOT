@@ -70,3 +70,5 @@ private:
                            double h, double w, double l,
                            double X, double Y, double Z, double ry);
 };
+
+bool is_static_trajectory(const Trajectory& traj, double position_threshold, double speed_threshold, double frame_time);
