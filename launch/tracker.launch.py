@@ -13,6 +13,7 @@ def generate_launch_description():
                 {'target_frame': 'local_map'},
                 {'timeout': 0.01},
                 {'tracker_flag': True},
+                {'save_results_for_evaluation': False},
 
                 # KF parameters
                 {'state_func_covariance': 0.2},

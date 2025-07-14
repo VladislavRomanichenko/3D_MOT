@@ -112,7 +112,7 @@ objects_msgs::msg::DynamicObject Tracker::eigen_array_to_dynamic_msg(const Eigen
 void Tracker::save_result(const std::string& filename, int frame, int track_id, const std::string& type,
                                 double truncation, double occlusion, double alpha,
                                 double h, double w, double l,
-                                double x, double y, double z, double ry) {
+                                double x, double y, double z, double ry, double score) {
     std::ofstream out(filename, std::ios::app);
     out << frame << " " << track_id << " " << type << " "
         << truncation << " " << occlusion << " " << alpha << " "
@@ -120,7 +120,7 @@ void Tracker::save_result(const std::string& filename, int frame, int track_id, 
         << std::fixed << std::setprecision(6)
         << h << " " << w << " " << l << " "
         << x << " " << y << " " << z << " "
-        << ry << " " << 0.75 << std::endl;
+        << ry << " " << score << std::endl;
     out.close();
 }
 
@@ -162,25 +162,15 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
     }
 
     geometry_msgs::msg::TransformStamped tf;
-    if (!save_results_for_evaluation_) {
-        try {
-            tf = tf_buffer_->lookupTransform(target_frame_, objects->header.frame_id, objects->header.stamp, timeout_);
-        } catch (const tf2::TransformException& ex) {
-            RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
-                                "tf lookup error: %s", ex.what());
-            diag_lvl = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
-            diag_msg = std::string("Can't get robot coordinates");
-            diag_updater.force_update();
-            return;
-        }
-    } else {
-        tf.transform.translation.x = 0.0;
-        tf.transform.translation.y = 0.0;
-        tf.transform.translation.z = 0.0;
-        tf.transform.rotation.x = 0.0;
-        tf.transform.rotation.y = 0.0;
-        tf.transform.rotation.z = 0.0;
-        tf.transform.rotation.w = 1.0;
+    try {
+        tf = tf_buffer_->lookupTransform(target_frame_, objects->header.frame_id, objects->header.stamp, timeout_);
+    } catch (const tf2::TransformException& ex) {
+        RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
+                            "tf lookup error: %s", ex.what());
+        diag_lvl = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
+        diag_msg = std::string("Can't get robot coordinates");
+        diag_updater.force_update();
+        return;
     }
 
     objects_msgs::msg::DynamicObjectArray dynamic_objects;
@@ -217,7 +207,7 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
         auto [tracked_bboxes, track_ids] = tracker_.tracking(bbox_array, &score_array, nullptr, timestamp_for_tracker_);
         timestamp_for_tracker_++;
 
-        /*
+        /* Фильтрация пропущенных детекций
         auto previous_trajectories = tracker_.post_processing(config_);
 
         std::map<int, std::map<int, std::pair<Eigen::VectorXd, double>>> frame_first_dict;
@@ -314,7 +304,8 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
             double y = tracked_object.object.pose.position.y;
             double z = tracked_object.object.pose.position.z;
             double yaw = get_object_yaw(tracked_object.object);
-            save_result(save_path, frame, track_id, type, truncation, occlusion, alpha, h, w, l, x, y, z, yaw);
+            double score = tracked_object.object.score;
+            save_result(save_path, frame, track_id, type, truncation, occlusion, alpha, h, w, l, x, y, z, yaw, score);
         }
         
         current_timestamp_++;

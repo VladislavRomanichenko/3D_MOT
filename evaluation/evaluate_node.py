@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+#Скрипт для отладки подсчёта метрик, без участия детектора в пайплайне, что повлияет на адекватность MOTP метрики
 
 import rclpy
 from rclpy.node import Node

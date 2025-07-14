@@ -66,9 +66,9 @@ private:
     bool save_results_for_evaluation_;
 
     void save_result(const std::string& filename, int frame, int track_id, const std::string& type,
-                           double truncation, double occlusion, double alpha,
-                           double h, double w, double l,
-                           double X, double Y, double Z, double ry);
+                                double truncation, double occlusion, double alpha,
+                                double h, double w, double l,
+                                double x, double y, double z, double ry, double score);
 };
 
 bool is_static_trajectory(const Trajectory& traj, double position_threshold, double speed_threshold, double frame_time);
