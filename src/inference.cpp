@@ -7,6 +7,7 @@ Tracker::Tracker() : Node("tracker_node"), diag_updater(this) {
     diag_updater.setHardwareID("none");
     diag_updater.setPeriod(1.0);
 
+    //ROS2 transformation
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
@@ -16,13 +17,20 @@ Tracker::Tracker() : Node("tracker_node"), diag_updater(this) {
     tracker_flag_ = this->declare_parameter("tracker_flag", false);
     timeout_ = rclcpp::Duration::from_seconds(this->declare_parameter("timeout", 0.01));
     target_frame_ = this->declare_parameter("target_frame", "local_map");
-    save_results_for_evaluation_ = this->declare_parameter("save_results_for_evaluation", false);
     
     //Params for evaluation mode
+    evaluation_mode_ = this->declare_parameter("evaluation_mode", false);
+    frame_id_param_ = this->declare_parameter("frame_id_param", "0021");
     prev_frame_id_ = "";  
     current_timestamp_ = 0;  
-    
-    //Declare params for config
+
+    if(evaluation_mode_){
+        std::string result_file_path = "results/tracker_results/data/" + frame_id_param_ + ".txt";
+        std::ofstream clear_file(result_file_path, std::ios::trunc);
+        clear_file.close();
+    }
+
+    //Declare params for tracker config
     Config config_;
 
     config_.state_func_covariance = this->declare_parameter("state_func_covariance", 1.0);
@@ -50,6 +58,7 @@ Tracker::Tracker() : Node("tracker_node"), diag_updater(this) {
     double diag_min_time = declare_parameter("diag_min_time", 0.0);
     double diag_max_time = declare_parameter("diag_max_time", 0.3);
 
+    //Diagnostic init
     diag_updater.add("Status", this, &Tracker::update_diagnostic_status);
 
     diag_input_min_freq = input_freq;
@@ -109,6 +118,7 @@ objects_msgs::msg::DynamicObject Tracker::eigen_array_to_dynamic_msg(const Eigen
     return dynamic_object;
 }
 
+
 void Tracker::save_result(const std::string& filename, int frame, int track_id, const std::string& type,
                                 double truncation, double occlusion, double alpha,
                                 double h, double w, double l,
@@ -125,24 +135,13 @@ void Tracker::save_result(const std::string& filename, int frame, int track_id, 
 }
 
 
+//Centerpoint labels
 std::string label_to_type(int label) {
     switch (label) {
         case -1: return "DontCare";
-        case 1: return "Car";
-        case 2: return "Van";
-        case 3: return "Pedestrian";
-        case 4: return "Cyclist";
-        case 5: return "Truck";
-        case 6: return "Bus";
-        case 7: return "Trailer";
-        case 8: return "Construction_vehicle";
-        case 9: return "Traffic_cone";
-        case 10: return "Barrier";
-        case 11: return "Motorcycle";
-        case 12: return "Bicycle";
-        case 13: return "Misc";
-        case 14: return "Person";
-        case 15: return "Tram";
+        case 0: return "Car";
+        case 1: return "Pedestrian";
+        case 2: return "Cyclist";
         default: return "Unknown";
     }
 }
@@ -207,7 +206,7 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
         auto [tracked_bboxes, track_ids] = tracker_.tracking(bbox_array, &score_array, nullptr, timestamp_for_tracker_);
         timestamp_for_tracker_++;
 
-        /* Фильтрация пропущенных детекций
+        /* TODO: Фильтрация пропущенных детекций
         auto previous_trajectories = tracker_.post_processing(config_);
 
         std::map<int, std::map<int, std::pair<Eigen::VectorXd, double>>> frame_first_dict;
@@ -268,15 +267,9 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
     diag_output->tick(objects->header.stamp);
     publisher_->publish(dynamic_objects);
 
-    if (save_results_for_evaluation_) {
-        //Имя файла из frame_id
-        std::string frame_id = objects->header.frame_id;
+    if (evaluation_mode_) {
+        std::string frame_id = frame_id_param_;
         
-        // Убираем префикс
-        if (frame_id.find("sequence_") == 0) {
-            frame_id = frame_id.substr(9);
-        }
-        //Форматируем имя файла как в groundtruth файлах из папки label
         std::string filename = frame_id;
         if (filename.length() < 4) {
             filename = std::string(4 - filename.length(), '0') + filename;
