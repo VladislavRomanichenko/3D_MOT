@@ -8,7 +8,6 @@
 #include <map>
 #include <memory>
 
-//TODO: переделать права доступа к полям
 
 class Tracker3D {
 public:

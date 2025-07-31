@@ -19,12 +19,12 @@ struct Object
     Object() : prediction_score(0.0), score(-1.0) {}
 };
 
-//TODO: переделать права доступа к полям
 
 class Trajectory 
 {
 public:
-    static constexpr int MAX_HISTORY = 5;//Сколько предыдущих поз мы храним(не менее 2)
+    //Сколько предыдущих поз мы храним(не менее 2)
+    int MAX_HISTORY = 10;
 
     Trajectory(const Eigen::VectorXd& init_bb,           
                double init_score,                        

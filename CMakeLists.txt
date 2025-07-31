@@ -14,6 +14,7 @@ find_package(Eigen3 REQUIRED)
 
 find_package(tf2_ros REQUIRED)
 find_package(tf2 REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 
 find_package(std_msgs REQUIRED)
 
@@ -40,6 +41,7 @@ ament_target_dependencies(tracker_node
                           "rclcpp"
                           "Eigen3"
                           "tf2_ros"
+                          "tf2_geometry_msgs"
                           "diagnostic_updater"
                           "diagnostic_msgs"
                           "objects_msgs"

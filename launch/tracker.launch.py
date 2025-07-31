@@ -11,6 +11,8 @@ def generate_launch_description():
             parameters=[
                 # Node parameters
                 {'target_frame': 'local_map'},
+                {'frame_odom': 'odom'},
+                {'tracking_in_odom': False},
                 {'timeout': 0.01},
                 {'tracker_flag': True},
                 
@@ -26,6 +28,7 @@ def generate_launch_description():
 
                 # Trajectory prediction
                 {'num_future_states': 50},
+                {'min_trajectory_history': 5},
 
                 # Max prediction number of state function
                 {'max_prediction_num': 20},

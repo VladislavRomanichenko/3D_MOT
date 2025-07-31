@@ -84,7 +84,9 @@ void Trajectory::state_update(const Eigen::VectorXd& bb,
         throw std::runtime_error("Timestamp not found in trajectory");
     }
 
-    Eigen::VectorXd detected_state = Eigen::VectorXd::Zero(track_dim - 6);
+    //Размерность измерений: 3 (x,y,z) + 4 (w,h,l,yaw) = 7
+    int measurement_dim = 3 + (tracking_bb_size ? 4 : 0);
+    Eigen::VectorXd detected_state = Eigen::VectorXd::Zero(measurement_dim);
     detected_state.head(3) = bb.head(3);
     if (tracking_bb_size) {
         detected_state.segment(3, 4) = bb.segment(3, 4);
@@ -183,7 +185,7 @@ void Trajectory::filtering(const Config& config)
 
 int Trajectory::compute_track_dim()
 {
-    int dim = 9; // x, y, z, vx, vy, vz, ax, ay, az
+    int dim = 6; // x, y, z, vx, vy, vz (убрали ax, ay, az)
     if (tracking_bb_size) {
         dim += 4; // w, h, l, yaw
     }
@@ -195,32 +197,34 @@ void Trajectory::init_parameters()
 {
     A = Eigen::MatrixXd::Identity(track_dim, track_dim);
     Q = Eigen::MatrixXd::Identity(track_dim, track_dim) * config.state_func_covariance;
-    P = Eigen::MatrixXd::Identity(track_dim - 6, track_dim - 6) * config.measure_func_covariance;
-    B = Eigen::MatrixXd::Zero(track_dim - 6, track_dim);
+    
+    //Размерность измерений: 3 (x,y,z) + 4 (w,h,l,yaw) = 7
+    int measurement_dim = 3 + (tracking_bb_size ? 4 : 0);
+    P = Eigen::MatrixXd::Identity(measurement_dim, measurement_dim) * config.measure_func_covariance;
+    B = Eigen::MatrixXd::Zero(measurement_dim, track_dim);
 
-    B.topRows(3) = A.topRows(3);
-    if (track_dim > 9) {
-        B.bottomRows(track_dim - 9) = A.bottomRows(track_dim - 9);
+    B.topRows(3) = A.topRows(3); // x, y, z
+    if (tracking_bb_size) {
+        B.bottomRows(4) = A.bottomRows(4); // w, h, l, yaw
     }
 
+    //Constant Velocity модель в 3D 
     Eigen::Matrix3d velo = Eigen::Matrix3d::Identity() * scanning_interval;
-    Eigen::Matrix3d acce = Eigen::Matrix3d::Identity() * 0.5 * scanning_interval * scanning_interval;
-
-    A.block<3, 3>(0, 3) = velo;
-    A.block<3, 3>(3, 6) = velo;
-    A.block<3, 3>(0, 6) = acce;
+    A.block<3, 3>(0, 3) = velo; // x, y, z -> vx, vy, vz
 
     H = B.transpose();
     K = Eigen::MatrixXd::Zero(track_dim, track_dim);
-    K(3, 0) = scanning_interval;
-    K(4, 1) = scanning_interval;
-    K(5, 2) = scanning_interval;
+    K(3, 0) = scanning_interval; // vx = dx/dt
+    K(4, 1) = scanning_interval; // vy = dy/dt
+    K(5, 2) = scanning_interval; // vz = dz/dt
 }
 
 
 void Trajectory::init_trajectory()
 {
-    Eigen::VectorXd detected_state = Eigen::VectorXd::Zero(track_dim - 6);
+    // Размерность измерений: 3 (x,y,z) + 4 (w,h,l,yaw) = 7
+    int measurement_dim = 3 + (tracking_bb_size ? 4 : 0);
+    Eigen::VectorXd detected_state = Eigen::VectorXd::Zero(measurement_dim);
     detected_state.head(3) = init_bb.head(3);
     if (tracking_bb_size) {
         detected_state.segment(3, 4) = init_bb.segment(3, 4);

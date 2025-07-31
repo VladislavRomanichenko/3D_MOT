@@ -3,6 +3,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <Eigen/Dense>
 
@@ -53,12 +54,15 @@ private:
 
     rclcpp::Duration timeout_{rclcpp::Duration::from_seconds(0.01)};
     std::string target_frame_;
-
+    std::string frame_odom_;
+    
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
     rclcpp::Time prev_time_;
     int num_future_states_;
+    int min_trajectory_history_;
+    bool tracking_in_odom_;
     int timestamp_for_tracker_;
     int current_timestamp_;
     std::string prev_frame_id_;  

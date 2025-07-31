@@ -17,6 +17,7 @@ Tracker::Tracker() : Node("tracker_node"), diag_updater(this) {
     tracker_flag_ = this->declare_parameter("tracker_flag", false);
     timeout_ = rclcpp::Duration::from_seconds(this->declare_parameter("timeout", 0.01));
     target_frame_ = this->declare_parameter("target_frame", "local_map");
+    frame_odom_ = this->declare_parameter("frame_odom", "odom");
     
     //Params for evaluation mode
     evaluation_mode_ = this->declare_parameter("evaluation_mode", false);
@@ -48,6 +49,11 @@ Tracker::Tracker() : Node("tracker_node"), diag_updater(this) {
 
     //Declare params for prediction states
     num_future_states_ = this->declare_parameter("num_future_states", 15);
+
+    //Minimum trajectory history for prediction
+    min_trajectory_history_ = this->declare_parameter("min_trajectory_history", 5);
+    
+    tracking_in_odom_ = this->declare_parameter("tracking_in_odom", true);
 
     timestamp_for_tracker_ = 0;
     tracker_ = Tracker3D("Centerpoint", config_);
@@ -159,10 +165,22 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
         prev_time_ = msg_time;
         return;
     }
+    
+    //lidar_frame → odom (для трекинга)
+    geometry_msgs::msg::TransformStamped tf_odom; 
 
+    //odom → local_map (для публикации)
+    geometry_msgs::msg::TransformStamped tf_odom_to_target;
+    
+    //lidar_frame → target_frame (для прямого трекинга)
     geometry_msgs::msg::TransformStamped tf;
+    
     try {
         tf = tf_buffer_->lookupTransform(target_frame_, objects->header.frame_id, objects->header.stamp, timeout_);
+        if(tracking_in_odom_){
+            tf_odom = tf_buffer_->lookupTransform(frame_odom_, objects->header.frame_id, objects->header.stamp, timeout_);
+            tf_odom_to_target = tf_buffer_->lookupTransform(target_frame_, frame_odom_, objects->header.stamp, timeout_);
+        }
     } catch (const tf2::TransformException& ex) {
         RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
                             "tf lookup error: %s", ex.what());
@@ -174,6 +192,7 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
 
     objects_msgs::msg::DynamicObjectArray dynamic_objects;
     dynamic_objects.header = objects->header;
+    //Трекинг и предикшен будут производиться в одометрии, но в итоге будут трансформироваться обратно в target_frame
     dynamic_objects.header.frame_id = target_frame_;
 
     std::vector<Eigen::VectorXd> bbox_list;
@@ -181,7 +200,11 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
     std::vector<int> label_arr;
 
     for (auto& obj : objects->objects) {
-        transform_object(obj, tf);
+        if(tracking_in_odom_){
+            transform_object(obj, tf_odom);
+        } else {
+            transform_object(obj, tf);
+        }
         if (tracker_flag_) {
             Eigen::VectorXd bbox = dynamic_msg_to_eigen_array(obj);
             bbox_list.push_back(bbox);
@@ -238,27 +261,46 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
             auto it_traj = tracker_.active_trajectories_.find(track_ids[i]);
             if (it_traj != tracker_.active_trajectories_.end()) {
                 is_static = is_static_trajectory(it_traj->second, 0.15, 0.1, 0.1);
-            }
+                
+                if (it_traj->second.size() > min_trajectory_history_ && !is_static && future_predictions.count(track_ids[i])) {
+                    for (const auto& preds : future_predictions[track_ids[i]]) {
+                        geometry_msgs::msg::PoseStamped preds_pose;
+                        preds_pose.header = objects->header;
+                        preds_pose.header.frame_id = tracking_in_odom_ ? frame_odom_ : target_frame_;
+                        preds_pose.header.stamp = base_time + rclcpp::Duration::from_seconds(dt * pred_idx);
 
-            if (!is_static && future_predictions.count(track_ids[i])) {
-                for (const auto& preds : future_predictions[track_ids[i]]) {
-                    geometry_msgs::msg::PoseStamped preds_pose;
-                    preds_pose.header = objects->header;
-                    preds_pose.header.frame_id = target_frame_;
-                    preds_pose.header.stamp = base_time + rclcpp::Duration::from_seconds(dt * pred_idx);
-
-                    if (preds.size() >= 13) {
-                        preds_pose.pose.position.x = preds(0);
-                        preds_pose.pose.position.y = preds(1);
-                        preds_pose.pose.position.z = tracked_object.object.pose.position.z; //Так как фильтр калмана реагирует и на эти изменения
-                        set_object_yaw(preds_pose, preds(12));
-                        tracked_object.prediction.push_back(preds_pose);
-                    } else {
-                        RCLCPP_WARN(this->get_logger(), "Traj size error");
+                        if (preds.size() >= 10) {
+                            preds_pose.pose.position.x = preds(0);
+                            preds_pose.pose.position.y = preds(1);
+                            preds_pose.pose.position.z = tracked_object.object.pose.position.z; //Так как фильтр калмана реагирует и на эти изменения
+                            set_object_yaw(preds_pose, preds(9)); 
+                            
+                            //Трансформируем предикшен в target_frame только если трекинг был в odom
+                            if (tracking_in_odom_) {
+                                geometry_msgs::msg::PoseStamped preds_pose_transformed;
+                                try {
+                                    tf2::doTransform(preds_pose, preds_pose_transformed, tf_odom_to_target);
+                                    preds_pose_transformed.header.frame_id = target_frame_;
+                                    tracked_object.prediction.push_back(preds_pose_transformed);
+                                } catch (const tf2::TransformException& ex) {
+                                    RCLCPP_WARN(this->get_logger(), "Failed to transform prediction to target frame: %s", ex.what());
+                                }
+                            } else {
+                                tracked_object.prediction.push_back(preds_pose);
+                            }
+                        } else {
+                            RCLCPP_WARN(this->get_logger(), "Traj size error: expected 10, got %ld", preds.size());
+                        }
+                        pred_idx++;
                     }
-                    pred_idx++;
                 }
             }
+            
+            //Трансформируем основной объект в target_frame перед публикацией
+            if (tracking_in_odom_) {
+                transform_object(tracked_object.object, tf_odom_to_target);
+            }
+            
             dynamic_objects.objects.push_back(tracked_object);
         }
     }
@@ -267,6 +309,7 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
     diag_output->tick(objects->header.stamp);
     publisher_->publish(dynamic_objects);
 
+    //Часть кода сохраняющая результаты, требуемая для оценки трекера
     if (evaluation_mode_) {
         std::string frame_id = frame_id_param_;
         
