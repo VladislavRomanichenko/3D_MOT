@@ -2,6 +2,7 @@
 #include <fstream>
 #include <iomanip>
 #include <filesystem>
+#include <sstream>
 
 Tracker::Tracker() : Node("tracker_node"), diag_updater(this) {
     diag_updater.setHardwareID("none");
@@ -24,6 +25,9 @@ Tracker::Tracker() : Node("tracker_node"), diag_updater(this) {
     frame_id_param_ = this->declare_parameter("frame_id_param", "0021");
     prev_frame_id_ = "";  
     current_timestamp_ = 0;  
+
+    //Params for predictor logging (separate from evaluation mode)
+    predictor_logging_ = this->declare_parameter("predictor_logging", false);
 
     if(evaluation_mode_){
         std::string result_file_path = "results/tracker_results/data/" + frame_id_param_ + ".txt";
@@ -175,19 +179,30 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
     //lidar_frame → target_frame (для прямого трекинга)
     geometry_msgs::msg::TransformStamped tf;
     
-    try {
-        tf = tf_buffer_->lookupTransform(target_frame_, objects->header.frame_id, objects->header.stamp, timeout_);
-        if(tracking_in_odom_){
-            tf_odom = tf_buffer_->lookupTransform(frame_odom_, objects->header.frame_id, objects->header.stamp, timeout_);
-            tf_odom_to_target = tf_buffer_->lookupTransform(target_frame_, frame_odom_, objects->header.stamp, timeout_);
+    if (!predictor_logging_) {
+        try {
+            tf = tf_buffer_->lookupTransform(target_frame_, objects->header.frame_id, objects->header.stamp, timeout_);
+            if(tracking_in_odom_){
+                tf_odom = tf_buffer_->lookupTransform(frame_odom_, objects->header.frame_id, objects->header.stamp, timeout_);
+                tf_odom_to_target = tf_buffer_->lookupTransform(target_frame_, frame_odom_, objects->header.stamp, timeout_);
+            }
+        } catch (const tf2::TransformException& ex) {
+            RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
+                                "tf lookup error: %s", ex.what());
+            diag_lvl = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
+            diag_msg = std::string("Can't get robot coordinates");
+            diag_updater.force_update();
+            return;
         }
-    } catch (const tf2::TransformException& ex) {
-        RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
-                            "tf lookup error: %s", ex.what());
-        diag_lvl = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
-        diag_msg = std::string("Can't get robot coordinates");
-        diag_updater.force_update();
-        return;
+    } else {
+        // Use identity transform when predictor_logging_ is enabled
+        tf.transform.translation.x = 0.0;
+        tf.transform.translation.y = 0.0;
+        tf.transform.translation.z = 0.0;
+        tf.transform.rotation.x = 0.0;
+        tf.transform.rotation.y = 0.0;
+        tf.transform.rotation.z = 0.0;
+        tf.transform.rotation.w = 1.0;
     }
 
     objects_msgs::msg::DynamicObjectArray dynamic_objects;
@@ -198,6 +213,7 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
     std::vector<Eigen::VectorXd> bbox_list;
     std::vector<double> score_arr;
     std::vector<int> label_arr;
+    std::vector<int> input_id_arr;
 
     for (auto& obj : objects->objects) {
         if(tracking_in_odom_){
@@ -210,6 +226,9 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
             bbox_list.push_back(bbox);
             score_arr.push_back(obj.score);
             label_arr.push_back(obj.label);
+            if (predictor_logging_) {
+                input_id_arr.push_back(obj.id);
+            }   
         } else {
             objects_msgs::msg::DynamicObject dynamic_object;
             dynamic_object.object = obj;
@@ -252,7 +271,11 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
             tracked_object.object.label = label_arr[i];
             tracked_object.object.score = score_arr[i];
 
-            tracked_object.object.id = static_cast<int>(track_ids[i]);
+            if (predictor_logging_ && i < static_cast<int>(input_id_arr.size())) {
+                tracked_object.object.id = input_id_arr[i];
+            } else {
+                tracked_object.object.id = static_cast<int>(track_ids[i]);
+            }
             rclcpp::Time base_time = objects->header.stamp;
             double dt = 0.1;
             int pred_idx = 1;
@@ -308,6 +331,75 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
     prev_time_ = msg_time;
     diag_output->tick(objects->header.stamp);
     publisher_->publish(dynamic_objects);
+
+    //Часть кода сохраняющая результаты, требуемая для оценки предиктора
+    if (predictor_logging_) {
+        auto json_escape = [](const std::string& in) {
+            std::ostringstream e;
+            for (char c : in) {
+                switch (c) {
+                    case '"': e << "\\\""; break;
+                    case '\\': e << "\\\\"; break;
+                    case '\n': e << "\\n"; break;
+                    case '\r': e << "\\r"; break;
+                    case '\t': e << "\\t"; break;
+                    default: e << c; break;
+                }
+            }
+            return e.str();
+        };
+
+        try {
+            std::filesystem::create_directories("results/tracker_results/predictions");
+            std::string jsonl_path = "results/tracker_results/predictions/" + frame_id_param_ + ".jsonl";
+            std::ofstream jout(jsonl_path, std::ios::app);
+            if (jout.is_open()) {
+                std::ostringstream oss;
+                oss.setf(std::ios::fixed); oss << std::setprecision(6);
+
+                double ts_sec = rclcpp::Time(objects->header.stamp).seconds();
+                oss << "{";
+                oss << "\"sequence_id\":\"" << json_escape(frame_id_param_) << "\",";
+                oss << "\"frame_index\":" << current_timestamp_ << ",";
+                oss << "\"timestamp\":" << std::setprecision(9) << ts_sec << std::setprecision(6) << ",";
+                oss << "\"frame_id\":\"" << json_escape(target_frame_) << "\",";
+                oss << "\"obs_len\":" << min_trajectory_history_ << ",";
+                oss << "\"pred_len\":" << num_future_states_ << ",";
+                oss << "\"objects\":[";
+
+                for (size_t oi = 0; oi < dynamic_objects.objects.size(); ++oi) {
+                    const auto& dobj = dynamic_objects.objects[oi];
+                    oss << "{";
+                    oss << "\"track_id\":" << dobj.object.id << ",";
+                    oss << "\"label\":" << dobj.object.label << ",";
+                    oss << "\"score\":" << dobj.object.score << ",";
+                    oss << "\"pos\":[" << dobj.object.pose.position.x << "," << dobj.object.pose.position.y << "," << dobj.object.pose.position.z << "],";
+
+                    oss << "\"predictions_xy\":[";
+                    if (!dobj.prediction.empty()) {
+                        oss << "[";
+                        for (size_t pi = 0; pi < dobj.prediction.size(); ++pi) {
+                            const auto& pp = dobj.prediction[pi].pose.position;
+                            oss << "[" << pp.x << "," << pp.y << "]";
+                            if (pi + 1 < dobj.prediction.size()) oss << ",";
+                        }
+                        oss << "]"; 
+                    }
+                    oss << "]"; 
+
+                    oss << "}";
+                    if (oi + 1 < dynamic_objects.objects.size()) oss << ",";
+                }
+
+                oss << "]}"; 
+                jout << oss.str() << "\n";
+                jout.close();
+            }
+         } catch (const std::exception& e) {
+             RCLCPP_WARN(this->get_logger(), "Failed to write predictions JSONL: %s", e.what());
+         }
++        current_timestamp_++;
+     }
 
     //Часть кода сохраняющая результаты, требуемая для оценки трекера
     if (evaluation_mode_) {

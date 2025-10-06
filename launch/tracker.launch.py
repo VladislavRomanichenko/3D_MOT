@@ -19,6 +19,7 @@ def generate_launch_description():
                 # Evaluation
                 {'evaluation_mode': False},
                 {'frame_id_param': '0022'},
+                {'predictor_logging': False},
 
                 # KF parameters
                 {'state_func_covariance': 0.2},

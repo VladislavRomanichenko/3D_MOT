@@ -8,3 +8,4 @@ objects_msgs/
 results/tracker_results/*.pdf
 results/tracker_results/*.txt
 results/tracker_results/data/*.txt
+results/tracker_results/predictions/*.jsonl

@@ -70,6 +70,9 @@ private:
     bool evaluation_mode_;
     std::string frame_id_param_;
 
+    // Predictor logging flag (separate from evaluation mode)
+    bool predictor_logging_ = false;
+
     void save_result(const std::string& filename, int frame, int track_id, const std::string& type,
                                 double truncation, double occlusion, double alpha,
                                 double h, double w, double l,

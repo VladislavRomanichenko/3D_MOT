@@ -19,12 +19,14 @@ def generate_launch_description():
             namespace='centerpoint',
             parameters=[
                 # Node parameters
-                {'target_frame': 'local_map'},
+                {'target_frame': 'sequence_0022'},  # Используем frame_id из GT данных
                 {'frame_odom': 'odom'},
-                {'tracking_in_odom': True},  # Трекинг в odom координатах
+                {'tracking_in_odom': False},  # Трекинг в target_frame координатах
                 {'timeout': 0.01},
                 {'tracker_flag': True},
                 {'save_results_for_evaluation': True},
+                {'predictor_logging': True},
+                {'frame_id_param': '0022'},  
 
                 # KF parameters
                 {'state_func_covariance': 50.0},
@@ -33,7 +35,7 @@ def generate_launch_description():
                 {'LiDAR_scanning_frequency': 10.0},
 
                 # Trajectory prediction
-                {'num_future_states': 10},
+                {'num_future_states': 50},
                 {'min_trajectory_history': 5},
 
                 # Max prediction number of state function

@@ -50,6 +50,18 @@ ament_target_dependencies(tracker_node
 install(TARGETS tracker_node
   DESTINATION lib/${PROJECT_NAME})
 
+install(PROGRAMS
+  evaluation/evaluate_node.py
+  DESTINATION lib/${PROJECT_NAME}
+  PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+)
+
+install(DIRECTORY
+  evaluation
+  DESTINATION lib/${PROJECT_NAME}
+  PATTERN "*.py"
+)
+
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}/
 )
