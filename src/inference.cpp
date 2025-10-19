@@ -18,12 +18,12 @@ Tracker::Tracker() : Node("tracker_node"), diag_updater(this) {
     timeout_ = rclcpp::Duration::from_seconds(this->declare_parameter("timeout", 0.01));
     target_frame_ = this->declare_parameter("target_frame", "local_map");
     frame_odom_ = this->declare_parameter("frame_odom", "odom");
-    
+
     //Params for evaluation mode
     evaluation_mode_ = this->declare_parameter("evaluation_mode", false);
     frame_id_param_ = this->declare_parameter("frame_id_param", "0021");
-    prev_frame_id_ = "";  
-    current_timestamp_ = 0;  
+    prev_frame_id_ = "";
+    current_timestamp_ = 0;
 
     if(evaluation_mode_){
         std::string result_file_path = "results/tracker_results/data/" + frame_id_param_ + ".txt";
@@ -52,7 +52,7 @@ Tracker::Tracker() : Node("tracker_node"), diag_updater(this) {
 
     //Minimum trajectory history for prediction
     min_trajectory_history_ = this->declare_parameter("min_trajectory_history", 5);
-    
+
     tracking_in_odom_ = this->declare_parameter("tracking_in_odom", true);
 
     timestamp_for_tracker_ = 0;
@@ -165,16 +165,16 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
         prev_time_ = msg_time;
         return;
     }
-    
+
     //lidar_frame → odom (для трекинга)
-    geometry_msgs::msg::TransformStamped tf_odom; 
+    geometry_msgs::msg::TransformStamped tf_odom;
 
     //odom → local_map (для публикации)
     geometry_msgs::msg::TransformStamped tf_odom_to_target;
-    
+
     //lidar_frame → target_frame (для прямого трекинга)
     geometry_msgs::msg::TransformStamped tf;
-    
+
     try {
         tf = tf_buffer_->lookupTransform(target_frame_, objects->header.frame_id, objects->header.stamp, timeout_);
         if(tracking_in_odom_){
@@ -261,7 +261,7 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
             auto it_traj = tracker_.active_trajectories_.find(track_ids[i]);
             if (it_traj != tracker_.active_trajectories_.end()) {
                 is_static = is_static_trajectory(it_traj->second, 0.15, 0.1, 0.1);
-                
+
                 if (it_traj->second.size() > min_trajectory_history_ && !is_static && future_predictions.count(track_ids[i])) {
                     for (const auto& preds : future_predictions[track_ids[i]]) {
                         geometry_msgs::msg::PoseStamped preds_pose;
@@ -273,13 +273,15 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
                             preds_pose.pose.position.x = preds(0);
                             preds_pose.pose.position.y = preds(1);
                             preds_pose.pose.position.z = tracked_object.object.pose.position.z; //Так как фильтр калмана реагирует и на эти изменения
-                            set_object_yaw(preds_pose, preds(9)); 
-                            
+                            set_object_yaw(preds_pose, preds(9));
+
                             //Трансформируем предикшен в target_frame только если трекинг был в odom
                             if (tracking_in_odom_) {
                                 geometry_msgs::msg::PoseStamped preds_pose_transformed;
                                 try {
                                     tf2::doTransform(preds_pose, preds_pose_transformed, tf_odom_to_target);
+                                    //Сохраняем header, так как doTransform его убирает
+                                    preds_pose_transformed.header = preds_pose.header;
                                     preds_pose_transformed.header.frame_id = target_frame_;
                                     tracked_object.prediction.push_back(preds_pose_transformed);
                                 } catch (const tf2::TransformException& ex) {
@@ -295,12 +297,12 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
                     }
                 }
             }
-            
+
             //Трансформируем основной объект в target_frame перед публикацией
             if (tracking_in_odom_) {
                 transform_object(tracked_object.object, tf_odom_to_target);
             }
-            
+
             dynamic_objects.objects.push_back(tracked_object);
         }
     }
@@ -312,21 +314,21 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
     //Часть кода сохраняющая результаты, требуемая для оценки трекера
     if (evaluation_mode_) {
         std::string frame_id = frame_id_param_;
-        
+
         std::string filename = frame_id;
         if (filename.length() < 4) {
             filename = std::string(4 - filename.length(), '0') + filename;
         }
-        
+
         std::string save_path = "results/tracker_results/data/" + filename + ".txt";
 
         if (frame_id != prev_frame_id_) {
             current_timestamp_ = 0;
             prev_frame_id_ = frame_id;
         }
-        
+
         int frame = current_timestamp_;
-        
+
         for (const auto& tracked_object : dynamic_objects.objects) {
             int track_id = tracked_object.object.id;
             std::string type = label_to_type(tracked_object.object.label);
@@ -343,7 +345,7 @@ void Tracker::tracker_callback(const objects_msgs::msg::ObjectArray::SharedPtr o
             double score = tracked_object.object.score;
             save_result(save_path, frame, track_id, type, truncation, occlusion, alpha, h, w, l, x, y, z, yaw, score);
         }
-        
+
         current_timestamp_++;
     }
 }
